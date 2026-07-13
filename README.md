@@ -21,6 +21,8 @@ Not much on its own. EZOCore is meant to be an optional shared dependency for ot
 - `EZOCore:RegisterAddon(metadata)`
 - `EZOCore:GetAddon(addonId)`
 - `EZOCore:GetRegisteredAddons()`
+- `EZOCore:HasAddon(addonId, minimumApiVersion)`
+- `EZOCore:HasCapability(addonId, capability, minimumApiVersion)`
 - `EZOCore:RegisterService(name, apiVersion, service)`
 - `EZOCore:GetService(name, minimumApiVersion)`
 - `EZOCore:RegisterCallback(eventName, callback)`
@@ -28,6 +30,8 @@ Not much on its own. EZOCore is meant to be an optional shared dependency for ot
 - `EZOCore:FireCallback(eventName, ...)`
 
 All of the above run locally in memory. Nothing is persisted to SavedVariables and nothing is sent over the network.
+
+Addons should register with stable lowercase EZO ids, visible version, numeric `AddOnVersion`, local API version and capabilities. EZOCore rejects invalid metadata without breaking the caller.
 
 ## Requirements
 

@@ -10,7 +10,19 @@ local function OnAddOnLoaded(_, addonName)
 
     EVENT_MANAGER:UnregisterForEvent(EZOCore.name, EVENT_ADD_ON_LOADED)
 
+    EZOCore:RegisterAddon({
+        id = "ezocore",
+        name = EZOCore.name,
+        version = EZOCore.version,
+        addOnVersion = EZOCore.addOnVersion,
+        apiVersion = EZOCore.apiVersion,
+        capabilities = {
+            "family.presence",
+        },
+    })
+
     EZOCore:Info("%s v%s initialized (local service phase).", EZOCore.name, EZOCore.version)
+    EZOCore:FireCallback(EZOCore.EVENT_INITIALIZED, EZOCore)
     EZOCore:FireCallback("EZOCore:Initialized", EZOCore)
 end
 

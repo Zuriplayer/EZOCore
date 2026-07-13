@@ -17,6 +17,12 @@ function EZOCore:RegisterCallback(eventName, callback)
 
     local callbacks = self.internal.callbacks
     callbacks[eventName] = callbacks[eventName] or {}
+    for i = 1, #callbacks[eventName] do
+        if callbacks[eventName][i] == callback then
+            return true
+        end
+    end
+
     table.insert(callbacks[eventName], callback)
     return true
 end

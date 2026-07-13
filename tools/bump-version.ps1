@@ -131,6 +131,7 @@ $manifestVersion = Get-RegexValue $manifestText '^## Version:\s*(.+?)\s*$'
 $manifestAddOnVersion = Get-RegexValue $manifestText '^## AddOnVersion:\s*(\d+)\s*$'
 $manifestApiVersion = Get-RegexValue $manifestText '^## APIVersion:\s*(.+?)\s*$'
 $coreVersion = Get-RegexValue $coreText '^\s*EZOCore\.version\s*=\s*"([^"]+)"\s*$'
+$coreAddOnVersion = Get-RegexValue $coreText '^\s*EZOCore\.addOnVersion\s*=\s*(\d+)\s*$'
 $configVersion = $config.addon.version
 $expectedZipName = "EZOCore_v$configVersion.zip"
 
@@ -150,6 +151,10 @@ if ($Check) {
     }
     if (-not $manifestAddOnVersion) {
         Write-Error "Missing ## AddOnVersion in EZOCore.txt"
+        $ok = $false
+    }
+    if ($manifestAddOnVersion -ne $coreAddOnVersion) {
+        Write-Error "AddOnVersion mismatch: EZOCore.txt=$manifestAddOnVersion EZOCore.lua=$coreAddOnVersion"
         $ok = $false
     }
 
@@ -229,6 +234,7 @@ if ($ApiVersion) {
 Write-Text $manifest $manifestText
 
 $coreText = Set-RegexValue $coreText '^(\s*EZOCore\.version\s*=\s*")[^"]+("\s*)$' $Version
+$coreText = Set-RegexValue $coreText '^(\s*EZOCore\.addOnVersion\s*=\s*)\d+(\s*)$' ([string]$AddOnVersion)
 Write-Text $core $coreText
 
 $config.addon.version = $Version

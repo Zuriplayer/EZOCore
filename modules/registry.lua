@@ -8,6 +8,23 @@ local function IsNonEmptyString(value)
     return type(value) == "string" and value ~= ""
 end
 
+local function IsPositiveNumber(value)
+    return type(value) == "number" and value >= 0
+end
+
+local function NormalizeId(value)
+    if not IsNonEmptyString(value) then
+        return nil
+    end
+
+    local id = string.lower(value)
+    if not string.match(id, "^[%w%.%-_]+$") then
+        return nil
+    end
+
+    return id
+end
+
 local function CopyTable(value)
     if type(value) ~= "table" then
         return nil
@@ -20,6 +37,23 @@ local function CopyTable(value)
     return copy
 end
 
+local function NormalizeCapabilities(value)
+    if type(value) ~= "table" then
+        return nil
+    end
+
+    local capabilities = {}
+    for key, entry in pairs(value) do
+        if type(key) == "number" and IsNonEmptyString(entry) then
+            capabilities[entry] = true
+        elseif IsNonEmptyString(key) and entry == true then
+            capabilities[key] = true
+        end
+    end
+
+    return capabilities
+end
+
 local function CopyAddonRecord(addon)
     if not addon then
         return nil
@@ -29,43 +63,94 @@ local function CopyAddonRecord(addon)
         id = addon.id,
         name = addon.name,
         version = addon.version,
+        addOnVersion = addon.addOnVersion,
         apiVersion = addon.apiVersion,
         capabilities = CopyTable(addon.capabilities),
+        debugName = addon.debugName,
+        build = addon.build,
     }
 end
 
+local function MeetsMinimumApiVersion(addon, minimumApiVersion)
+    if not addon then
+        return false
+    end
+    if minimumApiVersion == nil then
+        return true
+    end
+    if type(minimumApiVersion) ~= "number" then
+        return false
+    end
+    return type(addon.apiVersion) == "number" and addon.apiVersion >= minimumApiVersion
+end
+
 --- Registers metadata describing an installed addon so other addons can
---- discover it. metadata must at least contain an `id` field.
+--- discover it.
 function EZOCore:RegisterAddon(metadata)
-    if type(metadata) ~= "table" or not IsNonEmptyString(metadata.id) then
-        self:Warn("RegisterAddon: metadata.id must be a non-empty string")
+    if type(metadata) ~= "table" then
+        self:Warn("RegisterAddon: metadata must be a table")
+        return false
+    end
+
+    local addonId = NormalizeId(metadata.id)
+    if not addonId then
+        self:Warn("RegisterAddon: metadata.id must be a stable non-empty id")
+        return false
+    end
+    if not IsNonEmptyString(metadata.name) then
+        self:Warn("RegisterAddon: metadata.name must be a non-empty string (addon '%s')", addonId)
+        return false
+    end
+    if not IsNonEmptyString(metadata.version) then
+        self:Warn("RegisterAddon: metadata.version must be a non-empty string (addon '%s')", addonId)
+        return false
+    end
+    if not IsPositiveNumber(metadata.addOnVersion) then
+        self:Warn("RegisterAddon: metadata.addOnVersion must be a number (addon '%s')", addonId)
+        return false
+    end
+    if not IsPositiveNumber(metadata.apiVersion) then
+        self:Warn("RegisterAddon: metadata.apiVersion must be a number (addon '%s')", addonId)
+        return false
+    end
+
+    local capabilities = NormalizeCapabilities(metadata.capabilities)
+    if not capabilities then
+        self:Warn("RegisterAddon: metadata.capabilities must be a table (addon '%s')", addonId)
         return false
     end
 
     local addons = self.internal.addons
-    if addons[metadata.id] then
-        self:Warn("RegisterAddon: '%s' is already registered, overwriting", metadata.id)
+    if addons[addonId] then
+        self:Warn("RegisterAddon: '%s' is already registered", addonId)
+        return false
     end
 
-    addons[metadata.id] = {
-        id = metadata.id,
-        name = metadata.name or metadata.id,
+    addons[addonId] = {
+        id = addonId,
+        name = metadata.name,
         version = metadata.version,
+        addOnVersion = metadata.addOnVersion,
         apiVersion = metadata.apiVersion,
-        capabilities = CopyTable(metadata.capabilities),
+        capabilities = capabilities,
+        debugName = metadata.debugName,
+        build = metadata.build,
     }
 
-    self:Info("Addon registered: %s", metadata.id)
-    self:FireCallback("EZOCore:AddonRegistered", CopyAddonRecord(addons[metadata.id]))
+    local record = CopyAddonRecord(addons[addonId])
+    self:Info("Addon registered: %s v%s", addonId, metadata.version)
+    self:FireCallback(self.EVENT_ADDON_REGISTERED, record)
+    self:FireCallback("EZOCore:AddonRegistered", record)
     return true
 end
 
 --- Returns the registration record for a given addon id, or nil.
 function EZOCore:GetAddon(addonId)
-    if not IsNonEmptyString(addonId) then
+    local normalizedId = NormalizeId(addonId)
+    if not normalizedId then
         return nil
     end
-    return CopyAddonRecord(self.internal.addons[addonId])
+    return CopyAddonRecord(self.internal.addons[normalizedId])
 end
 
 --- Returns a plain array with every currently registered addon record.
@@ -75,6 +160,30 @@ function EZOCore:GetRegisteredAddons()
         list[#list + 1] = CopyAddonRecord(addon)
     end
     return list
+end
+
+--- Returns true if `addonId` is registered and meets the optional API floor.
+function EZOCore:HasAddon(addonId, minimumApiVersion)
+    local normalizedId = NormalizeId(addonId)
+    if not normalizedId then
+        return false
+    end
+    return MeetsMinimumApiVersion(self.internal.addons[normalizedId], minimumApiVersion)
+end
+
+--- Returns true if `addonId` has `capability` and meets the optional API floor.
+function EZOCore:HasCapability(addonId, capability, minimumApiVersion)
+    local normalizedId = NormalizeId(addonId)
+    if not normalizedId or not IsNonEmptyString(capability) then
+        return false
+    end
+
+    local addon = self.internal.addons[normalizedId]
+    if not MeetsMinimumApiVersion(addon, minimumApiVersion) then
+        return false
+    end
+
+    return addon.capabilities and addon.capabilities[capability] == true
 end
 
 --- Registers a service implementation under `name` at a given API version.
@@ -101,6 +210,7 @@ function EZOCore:RegisterService(name, apiVersion, service)
     }
 
     self:Info("Service registered: %s (API v%d)", name, apiVersion)
+    self:FireCallback(self.EVENT_SERVICE_REGISTERED, name, apiVersion)
     self:FireCallback("EZOCore:ServiceRegistered", name, apiVersion)
     return true
 end

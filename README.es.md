@@ -21,6 +21,8 @@ No demasiado por sí mismo. EZOCore está pensado como una dependencia opcional 
 - `EZOCore:RegisterAddon(metadata)`
 - `EZOCore:GetAddon(addonId)`
 - `EZOCore:GetRegisteredAddons()`
+- `EZOCore:HasAddon(addonId, minimumApiVersion)`
+- `EZOCore:HasCapability(addonId, capability, minimumApiVersion)`
 - `EZOCore:RegisterService(name, apiVersion, service)`
 - `EZOCore:GetService(name, minimumApiVersion)`
 - `EZOCore:RegisterCallback(eventName, callback)`
@@ -28,6 +30,8 @@ No demasiado por sí mismo. EZOCore está pensado como una dependencia opcional 
 - `EZOCore:FireCallback(eventName, ...)`
 
 Todo lo anterior funciona localmente en memoria. Nada se guarda en SavedVariables y nada se envía por red.
+
+Los addons deben registrarse con IDs EZO estables en minúsculas, versión visible, `AddOnVersion` numérico, versión de API local y capacidades. EZOCore rechaza metadata inválida sin romper al llamador.
 
 ## Requisitos
 
