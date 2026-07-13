@@ -30,8 +30,16 @@ local function GetLogger()
     end
 
     hasCheckedForLogger = true
-    if type(LibDebugLogger) == "function" then
-        local ok, result = pcall(LibDebugLogger, EZOCore.name)
+    local lib = _G.LibDebugLogger
+    if type(lib) == "function" then
+        local ok, result = pcall(lib, EZOCore.name)
+        if ok then
+            logger = result
+        end
+    elseif type(lib) == "table" and type(lib.Create) == "function" then
+        local ok, result = pcall(function()
+            return lib:Create(EZOCore.name)
+        end)
         if ok then
             logger = result
         end
@@ -43,27 +51,39 @@ end
 function EZOCore.Debug(_, message, ...)
     local log = GetLogger()
     if log and type(log.Debug) == "function" then
-        log:Debug(SafeFormat(message, ...))
+        local text = SafeFormat(message, ...)
+        pcall(function()
+            log:Debug(text)
+        end)
     end
 end
 
 function EZOCore.Info(_, message, ...)
     local log = GetLogger()
     if log and type(log.Info) == "function" then
-        log:Info(SafeFormat(message, ...))
+        local text = SafeFormat(message, ...)
+        pcall(function()
+            log:Info(text)
+        end)
     end
 end
 
 function EZOCore.Warn(_, message, ...)
     local log = GetLogger()
     if log and type(log.Warn) == "function" then
-        log:Warn(SafeFormat(message, ...))
+        local text = SafeFormat(message, ...)
+        pcall(function()
+            log:Warn(text)
+        end)
     end
 end
 
 function EZOCore.Error(_, message, ...)
     local log = GetLogger()
     if log and type(log.Error) == "function" then
-        log:Error(SafeFormat(message, ...))
+        local text = SafeFormat(message, ...)
+        pcall(function()
+            log:Error(text)
+        end)
     end
 end
