@@ -1,0 +1,13 @@
+SavedVariables/
+*.log
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+dist/
+
+# Internal AI-agent instructions and dev-process notes.
+# Kept locally for Claude Code/Codex to read, never tracked in git.
+CLAUDE.md
+AGENTS.md
+.claude/
