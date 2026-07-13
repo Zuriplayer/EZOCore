@@ -1,10 +1,28 @@
 local EZOCore = EZOCore
 
 -- Thin diagnostics wrapper around LibDebugLogger.
--- Degrades to no-ops (or simple d() output) when the library is not installed,
--- so EZOCore never hard-depends on it.
+-- Degrades to no-ops when the library is not installed, so EZOCore never
+-- hard-depends on it and never leaks technical diagnostics into player chat.
 local logger
 local hasCheckedForLogger = false
+
+local function SafeFormat(message, ...)
+    local text = tostring(message or "")
+    if select("#", ...) == 0 then
+        return text
+    end
+
+    local ok, formatted = pcall(string.format, text, ...)
+    if ok then
+        return formatted
+    end
+
+    local parts = { text }
+    for i = 1, select("#", ...) do
+        parts[#parts + 1] = tostring(select(i, ...))
+    end
+    return table.concat(parts, " ")
+end
 
 local function GetLogger()
     if hasCheckedForLogger then
@@ -12,43 +30,40 @@ local function GetLogger()
     end
 
     hasCheckedForLogger = true
-    if LibDebugLogger then
-        logger = LibDebugLogger(EZOCore.name)
+    if type(LibDebugLogger) == "function" then
+        local ok, result = pcall(LibDebugLogger, EZOCore.name)
+        if ok then
+            logger = result
+        end
     end
 
     return logger
 end
 
-function EZOCore:Debug(message, ...)
+function EZOCore.Debug(_, message, ...)
     local log = GetLogger()
-    if log then
-        log:Debug(string.format(message, ...))
+    if log and type(log.Debug) == "function" then
+        log:Debug(SafeFormat(message, ...))
     end
 end
 
-function EZOCore:Info(message, ...)
+function EZOCore.Info(_, message, ...)
     local log = GetLogger()
-    if log then
-        log:Info(string.format(message, ...))
+    if log and type(log.Info) == "function" then
+        log:Info(SafeFormat(message, ...))
     end
 end
 
-function EZOCore:Warn(message, ...)
+function EZOCore.Warn(_, message, ...)
     local log = GetLogger()
-    local formatted = string.format(message, ...)
-    if log then
-        log:Warn(formatted)
-    else
-        d("[EZOCore] Warning: " .. formatted)
+    if log and type(log.Warn) == "function" then
+        log:Warn(SafeFormat(message, ...))
     end
 end
 
-function EZOCore:Error(message, ...)
+function EZOCore.Error(_, message, ...)
     local log = GetLogger()
-    local formatted = string.format(message, ...)
-    if log then
-        log:Error(formatted)
-    else
-        d("[EZOCore] Error: " .. formatted)
+    if log and type(log.Error) == "function" then
+        log:Error(SafeFormat(message, ...))
     end
 end

@@ -20,7 +20,10 @@ if (-not $ConfigPath) {
 
 $config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
 $addon = $config.addon
-$package = $config.package
+$package = if ($addon.package) { $addon.package } else { $config.package }
+if (-not $package) {
+    throw "Package configuration not found in ezo-addon.json."
+}
 
 $outputDir = Join-Path $repoRoot $package.outputPath
 if (-not (Test-Path -LiteralPath $outputDir)) {

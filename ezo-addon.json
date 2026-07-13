@@ -7,39 +7,40 @@
     "status": "beta",
     "phase": "local-service-preview",
     "visibility": "private",
-    "manifest": "EZOCore.txt"
-  },
-  "package": {
-    "rootFolderName": "EZOCore",
-    "zipName": "EZOCore_v0.1.0.zip",
-    "outputPath": "dist",
-    "include": [
-      "*.txt",
-      "*.lua",
-      "modules/**"
-    ],
-    "exclude": [
-      ".claude/**",
-      ".codex/**",
-      ".github/**",
-      ".git/**",
-      ".vscode/**",
-      "dev/**",
-      "docs/**",
-      "scripts/**",
-      "tools/**",
-      "tests/**",
-      "test/**",
-      "node_modules/**",
-      "build/**",
-      "dist/**",
-      "*.md",
-      "*.ps1",
-      "*.sh",
-      "*.log",
-      "*.tmp",
-      "*.bak"
-    ]
+    "manifest": "EZOCore.txt",
+    "package": {
+      "rootFolderName": "EZOCore",
+      "zipName": "EZOCore_v0.1.0.zip",
+      "outputPath": "dist",
+      "include": [
+        "*.txt",
+        "*.lua",
+        "modules/**"
+      ],
+      "exclude": [
+        ".agents/**",
+        ".claude/**",
+        ".codex/**",
+        ".github/**",
+        ".git/**",
+        ".vscode/**",
+        "dev/**",
+        "docs/**",
+        "scripts/**",
+        "tools/**",
+        "tests/**",
+        "test/**",
+        "node_modules/**",
+        "build/**",
+        "dist/**",
+        "*.md",
+        "*.ps1",
+        "*.sh",
+        "*.log",
+        "*.tmp",
+        "*.bak"
+      ]
+    }
   },
   "discord": {
     "webhookSecretNames": {

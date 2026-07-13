@@ -5,7 +5,6 @@
 ## AddOnVersion: 100
 ## APIVersion: 101049 101050
 ## OptionalDependsOn: LibDebugLogger DebugLogViewer
-## SavedVariables:
 
 EZOCore.lua
 modules/debug.lua

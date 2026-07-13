@@ -8,6 +8,32 @@ local function IsNonEmptyString(value)
     return type(value) == "string" and value ~= ""
 end
 
+local function CopyTable(value)
+    if type(value) ~= "table" then
+        return nil
+    end
+
+    local copy = {}
+    for key, entry in pairs(value) do
+        copy[key] = entry
+    end
+    return copy
+end
+
+local function CopyAddonRecord(addon)
+    if not addon then
+        return nil
+    end
+
+    return {
+        id = addon.id,
+        name = addon.name,
+        version = addon.version,
+        apiVersion = addon.apiVersion,
+        capabilities = CopyTable(addon.capabilities),
+    }
+end
+
 --- Registers metadata describing an installed addon so other addons can
 --- discover it. metadata must at least contain an `id` field.
 function EZOCore:RegisterAddon(metadata)
@@ -26,10 +52,11 @@ function EZOCore:RegisterAddon(metadata)
         name = metadata.name or metadata.id,
         version = metadata.version,
         apiVersion = metadata.apiVersion,
+        capabilities = CopyTable(metadata.capabilities),
     }
 
     self:Info("Addon registered: %s", metadata.id)
-    self:FireCallback("EZOCore:AddonRegistered", addons[metadata.id])
+    self:FireCallback("EZOCore:AddonRegistered", CopyAddonRecord(addons[metadata.id]))
     return true
 end
 
@@ -38,14 +65,14 @@ function EZOCore:GetAddon(addonId)
     if not IsNonEmptyString(addonId) then
         return nil
     end
-    return self.internal.addons[addonId]
+    return CopyAddonRecord(self.internal.addons[addonId])
 end
 
 --- Returns a plain array with every currently registered addon record.
 function EZOCore:GetRegisteredAddons()
     local list = {}
     for _, addon in pairs(self.internal.addons) do
-        list[#list + 1] = addon
+        list[#list + 1] = CopyAddonRecord(addon)
     end
     return list
 end
@@ -81,6 +108,14 @@ end
 --- Looks up a previously registered service. If minimumApiVersion is given
 --- and the registered service is older, returns nil instead of the service.
 function EZOCore:GetService(name, minimumApiVersion)
+    if not IsNonEmptyString(name) then
+        return nil
+    end
+    if minimumApiVersion ~= nil and type(minimumApiVersion) ~= "number" then
+        self:Warn("GetService: minimumApiVersion must be a number (service '%s')", name)
+        return nil
+    end
+
     local entry = self.internal.services[name]
     if not entry then
         return nil

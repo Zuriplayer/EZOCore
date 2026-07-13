@@ -24,6 +24,13 @@ end
 --- Removes a previously registered callback for `eventName`.
 --- Returns true if a matching callback was found and removed.
 function EZOCore:UnregisterCallback(eventName, callback)
+    if type(eventName) ~= "string" or eventName == "" then
+        return false
+    end
+    if type(callback) ~= "function" then
+        return false
+    end
+
     local list = self.internal.callbacks[eventName]
     if not list then
         return false
@@ -43,6 +50,11 @@ end
 --- given arguments. Errors inside a callback are caught and logged so one
 --- broken listener cannot break the others.
 function EZOCore:FireCallback(eventName, ...)
+    if type(eventName) ~= "string" or eventName == "" then
+        self:Warn("FireCallback: eventName must be a non-empty string")
+        return
+    end
+
     local list = self.internal.callbacks[eventName]
     if not list or #list == 0 then
         return

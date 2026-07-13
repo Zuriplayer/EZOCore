@@ -17,10 +17,14 @@ if (-not $ConfigPath) {
 
 $config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
 $addon = $config.addon
+$package = if ($addon.package) { $addon.package } else { $config.package }
 $publishDiscord = Join-Path $PSScriptRoot "publish-discord.ps1"
 
 if (-not $ZipPath) {
-    $ZipPath = Join-Path $repoRoot (Join-Path $config.package.outputPath $config.package.zipName)
+    if (-not $package) {
+        throw "Package configuration not found in ezo-addon.json."
+    }
+    $ZipPath = Join-Path $repoRoot (Join-Path $package.outputPath $package.zipName)
 }
 
 if ($Force -or -not (Test-Path -LiteralPath $ZipPath)) {

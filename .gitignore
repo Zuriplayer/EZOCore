@@ -1,13 +1,35 @@
 SavedVariables/
+
+# Logs and diagnostics
 *.log
+logs/
+*.tmp
+*.bak
+
+# Local environment and private notes
+.env
+.env.*
+!.env.example
+AGENTS.md
+AGENTS.local.md
+CLAUDE.md
+private-notes.md
+notes-private/
+
+# Local assistant state
+.agents/
+.claude/
+.codex/
+
+# Editor and OS files
 .vscode/
 .idea/
+*.code-workspace
 Thumbs.db
 .DS_Store
-dist/
 
-# Internal AI-agent instructions and dev-process notes.
-# Kept locally for Claude Code/Codex to read, never tracked in git.
-CLAUDE.md
-AGENTS.md
-.claude/
+# Temporary and build/package artifacts
+tmp/
+temp/
+build/
+dist/
