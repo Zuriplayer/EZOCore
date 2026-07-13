@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "addon": {
+    "id": "ezocore",
+    "name": "EZOCore",
+    "version": "0.1.0",
+    "status": "beta",
+    "phase": "local-service-preview",
+    "visibility": "private",
+    "manifest": "EZOCore.txt"
+  },
+  "package": {
+    "rootFolderName": "EZOCore",
+    "zipName": "EZOCore_v0.1.0.zip",
+    "outputPath": "dist",
+    "include": [
+      "*.txt",
+      "*.lua",
+      "modules/**"
+    ],
+    "exclude": [
+      ".claude/**",
+      ".codex/**",
+      ".github/**",
+      ".git/**",
+      ".vscode/**",
+      "dev/**",
+      "docs/**",
+      "scripts/**",
+      "tools/**",
+      "tests/**",
+      "test/**",
+      "node_modules/**",
+      "build/**",
+      "dist/**",
+      "*.md",
+      "*.ps1",
+      "*.sh",
+      "*.log",
+      "*.tmp",
+      "*.bak"
+    ]
+  },
+  "discord": {
+    "webhookSecretNames": {
+      "downloads": "EZO_CODEX_DOWNLOADS",
+      "releases": "EZO_CODEX_RELEASES",
+      "status": "EZO_CODEX_STATUS",
+      "announcements": "EZO_CODEX_ANNOUNCER",
+      "betaBuilds": "EZO_CODEX_BETA_BUILDS",
+      "codexLog": "CODEX_LOG",
+      "bugReports": "EZO_CODEX_BUG_REPORTS"
+    }
+  }
+}
