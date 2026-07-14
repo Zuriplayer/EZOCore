@@ -1,13 +1,15 @@
 local EZOCore = EZOCore
 
 -- Central settings service for the EZO family.
--- It owns a native Settings > EZO entry and lets EZO addons register their
--- existing LibAddonMenu panels under a shared hub.
+-- It owns a native Settings > EZO entry and renders registered LibAddonMenu
+-- controls inside a shared EZO settings window.
 
 local SETTINGS = {}
 EZOCore.Settings = SETTINGS
 
 local PANEL_NAME = "EZO"
+local PANEL_DISPLAY_NAME = "E|cB040FFZ|rO"
+local FEEDBACK_URL = "https://discord.gg/ekw8zUAcRm"
 local SERVICE_NAME = "family.settings"
 local SERVICE_API_VERSION = 1
 local CORE_ADDON_NAME = "EZOCore"
@@ -45,7 +47,6 @@ local STRINGS = {
         state = "State: %s",
         hubDescription = "Central access point for EZO family addon settings.",
         addonSettings = "Addon settings",
-        panelUnavailable = "Settings panel is not available yet: %s",
     },
     es = {
         installedAddons = "Addons EZO instalados",
@@ -65,7 +66,6 @@ local STRINGS = {
         state = "Estado: %s",
         hubDescription = "Acceso central a la configuracion de los addons de la familia EZO.",
         addonSettings = "Configuracion de addons",
-        panelUnavailable = "El panel de configuracion todavia no esta disponible: %s",
     },
 }
 
@@ -427,10 +427,11 @@ local function BuildManagerEntry()
         panelId = MANAGER_PANEL_ID,
         panelData = {
             type = "panel",
-            name = T("installedAddons"),
-            displayName = T("installedAddons"),
+            name = PANEL_NAME,
+            displayName = PANEL_DISPLAY_NAME,
             author = "@Zuriplayer",
             version = EZOCore.version,
+            feedback = FEEDBACK_URL,
             registerForRefresh = true,
         },
         options = BuildInstalledAddonsOptions,
@@ -510,9 +511,10 @@ local function RegisterLamHubPanel()
     SETTINGS.lamPanel = LAM:RegisterAddonPanel(HUB_PANEL_ID, {
         type = "panel",
         name = PANEL_NAME,
-        displayName = PANEL_NAME,
+        displayName = PANEL_DISPLAY_NAME,
         author = "@Zuriplayer",
         version = EZOCore.version,
+        feedback = FEEDBACK_URL,
         registerForRefresh = true,
     })
     LAM:RegisterOptionControls(HUB_PANEL_ID, hubOptions)
@@ -591,9 +593,12 @@ local function RenderSelectedPanel()
         return
     end
 
-    ClearControls(ui.optionControls)
-    ui.optionChild._ezoCreatedControls = ui.optionControls
-    ui.optionChild.controlsToRefresh = {}
+    local previousPanelId = ui.currentPanelId
+    if ui.currentPanelHost and previousPanelId ~= selectedPanelId then
+        FireLamCallback("LAM-PanelClosed", ui.currentPanelHost)
+        ui.currentPanelHost:SetHidden(true)
+        ui.currentPanelHost = nil
+    end
 
     local entry = GetEntry(selectedPanelId)
     if not entry then
@@ -604,9 +609,20 @@ local function RenderSelectedPanel()
         return
     end
 
-    local panelData = entry.panelData or {}
-    ui.title:SetText(StripMarkup(panelData.displayName or panelData.name or PANEL_NAME))
+    local existingHost = ui.panelHosts[selectedPanelId]
+    if existingHost then
+        existingHost:SetHidden(false)
+        ui.currentPanelHost = existingHost
+        ui.currentPanelId = selectedPanelId
+        FireLamCallback("LAM-RefreshPanel", existingHost)
+        if previousPanelId ~= selectedPanelId then
+            FireLamCallback("LAM-PanelOpened", existingHost)
+        end
+        RebuildMenuList()
+        return
+    end
 
+    local panelData = entry.panelData or {}
     local options = ResolveOptions(entry)
     if GetLam()
         and type(LAMCreateControl) == "table"
@@ -618,21 +634,32 @@ local function RenderSelectedPanel()
             ui.optionChild,
             panelData,
             WINDOW_NAME .. "LAMPanel" .. controlCounter)
-        panelHost:SetDimensions(645, 650)
+        panelHost:SetDimensions(645, 675)
         panelHost:SetAnchor(TOPLEFT, ui.optionChild, TOPLEFT, 0, 0)
         panelHost:SetHidden(false)
-        panelHost._ezoCreatedControls = ui.optionControls
-        ui.optionControls[#ui.optionControls + 1] = panelHost
+        panelHost._ezoCreatedControls = {}
+        ui.panelHosts[selectedPanelId] = panelHost
+        ui.currentPanelHost = panelHost
+        ui.currentPanelId = selectedPanelId
 
         CreateOptionControls(panelHost, options)
         FireLamCallback("LAM-PanelControlsCreated", panelHost)
+        FireLamCallback("LAM-RefreshPanel", panelHost)
         FireLamCallback("LAM-PanelOpened", panelHost)
     else
         controlCounter = controlCounter + 1
-        local info = CreateLabel(ui.optionChild, WINDOW_NAME .. "PanelInfo" .. controlCounter, "", "ZoFontGameSmall")
+        local panelHost = WINDOW_MANAGER:CreateControl(
+            WINDOW_NAME .. "FallbackPanel" .. controlCounter,
+            ui.optionChild,
+            CT_CONTROL)
+        panelHost:SetDimensions(645, 675)
+        panelHost:SetAnchor(TOPLEFT, ui.optionChild, TOPLEFT, 0, 0)
+
+        controlCounter = controlCounter + 1
+        local info = CreateLabel(panelHost, WINDOW_NAME .. "PanelInfo" .. controlCounter, "", "ZoFontGameSmall")
         info:SetDimensions(645, 40)
         info:SetColor(0.72, 0.72, 0.68, 1)
-        info:SetAnchor(TOPLEFT, ui.optionChild, TOPLEFT, 0, 0)
+        info:SetAnchor(TOPLEFT, panelHost, TOPLEFT, 0, 0)
 
         local infoParts = {}
         if IsNonEmptyString(panelData.author) then
@@ -642,7 +669,6 @@ local function RenderSelectedPanel()
             infoParts[#infoParts + 1] = "v" .. tostring(panelData.version)
         end
         info:SetText(table.concat(infoParts, "  "))
-        ui.optionControls[#ui.optionControls + 1] = info
 
         local message = T("noOptions")
         if not GetLam() then
@@ -650,11 +676,14 @@ local function RenderSelectedPanel()
         end
 
         controlCounter = controlCounter + 1
-        local label = CreateLabel(ui.optionChild, WINDOW_NAME .. "Empty" .. controlCounter, message)
+        local label = CreateLabel(panelHost, WINDOW_NAME .. "Empty" .. controlCounter, message)
         label:SetDimensions(645, 80)
         label:SetColor(0.9, 0.82, 0.62, 1)
         label:SetAnchor(TOPLEFT, info, BOTTOMLEFT, 0, 15)
-        ui.optionControls[#ui.optionControls + 1] = label
+
+        ui.panelHosts[selectedPanelId] = panelHost
+        ui.currentPanelHost = panelHost
+        ui.currentPanelId = selectedPanelId
     end
 
     RebuildMenuList()
@@ -665,32 +694,61 @@ local function CreateSettingsWindow()
         return ui ~= nil
     end
 
-    local root = WINDOW_MANAGER:CreateControl(WINDOW_NAME, GuiRoot, CT_CONTROL)
-    root:SetDimensions(1000, 735)
-    root:SetAnchor(CENTER, GuiRoot, CENTER, 0, 40)
+    local root = WINDOW_MANAGER:CreateTopLevelWindow(WINDOW_NAME)
+    root:SetDimensions(1010, 914)
+    root:SetAnchor(LEFT, GuiRoot, LEFT, 245, 0)
     root:SetHidden(true)
 
-    local title = CreateLabel(root, WINDOW_NAME .. "Title", PANEL_NAME, "ZoFontWinH1")
-    title:SetDimensions(645, 48)
-    title:SetAnchor(TOPLEFT, root, TOPLEFT, 335, 8)
+    local bgLeft = WINDOW_MANAGER:CreateControl(WINDOW_NAME .. "BackgroundLeft", root, CT_TEXTURE)
+    bgLeft:SetDimensions(1024, 1024)
+    bgLeft:SetAnchor(TOPLEFT, root, TOPLEFT, 0, 0)
+    bgLeft:SetTexture("EsoUI/Art/Miscellaneous/centerscreen_left.dds")
+    bgLeft:SetDrawLayer(DL_BACKGROUND)
+
+    local bgRight = WINDOW_MANAGER:CreateControl(WINDOW_NAME .. "BackgroundRight", root, CT_TEXTURE)
+    bgRight:SetDimensions(64, 1024)
+    bgRight:SetAnchor(TOPLEFT, bgLeft, TOPRIGHT, 0, 0)
+    bgRight:SetTexture("EsoUI/Art/Miscellaneous/centerscreen_right.dds")
+    bgRight:SetDrawLayer(DL_BACKGROUND)
+
+    local underlayLeft = WINDOW_MANAGER:CreateControl(WINDOW_NAME .. "UnderlayLeft", root, CT_TEXTURE)
+    underlayLeft:SetDimensions(256, 1024)
+    underlayLeft:SetAnchor(TOPLEFT, root, TOPLEFT, 0, 0)
+    underlayLeft:SetTexture("EsoUI/Art/Miscellaneous/centerscreen_indexArea_left.dds")
+    underlayLeft:SetDrawLayer(DL_BACKGROUND)
+
+    local underlayRight = WINDOW_MANAGER:CreateControl(WINDOW_NAME .. "UnderlayRight", root, CT_TEXTURE)
+    underlayRight:SetDimensions(128, 1024)
+    underlayRight:SetAnchor(TOPLEFT, underlayLeft, TOPRIGHT, 0, 0)
+    underlayRight:SetTexture("EsoUI/Art/Miscellaneous/centerscreen_indexArea_right.dds")
+    underlayRight:SetDrawLayer(DL_BACKGROUND)
+
+    local title = CreateLabel(root, WINDOW_NAME .. "Title", PANEL_DISPLAY_NAME, "ZoFontWinH1")
+    title:SetDimensions(900, 30)
+    title:SetAnchor(TOPLEFT, root, TOPLEFT, 65, 70)
+
+    local divider = WINDOW_MANAGER:CreateControlFromVirtual(
+        WINDOW_NAME .. "Divider",
+        root,
+        "ZO_Options_Divider")
+    divider:SetAnchor(TOPLEFT, root, TOPLEFT, 65, 108)
 
     local menuContainer = WINDOW_MANAGER:CreateControlFromVirtual(
         WINDOW_NAME .. "MenuScroll",
         root,
         "ZO_ScrollContainer")
-    menuContainer:SetDimensions(280, 675)
-    menuContainer:SetAnchor(TOPLEFT, root, TOPLEFT, 35, 60)
+    menuContainer:SetDimensions(285, 665)
+    menuContainer:SetAnchor(TOPLEFT, root, TOPLEFT, 65, 160)
     local menuChild = GetControl(menuContainer, "ScrollChild")
     menuChild:SetResizeToFitPadding(0, 20)
 
-    local optionContainer = WINDOW_MANAGER:CreateControlFromVirtual(
-        WINDOW_NAME .. "OptionsScroll",
+    local optionContainer = WINDOW_MANAGER:CreateControl(
+        WINDOW_NAME .. "OptionsHost",
         root,
-        "ZO_ScrollContainer")
-    optionContainer:SetDimensions(650, 675)
-    optionContainer:SetAnchor(TOPLEFT, root, TOPLEFT, 335, 60)
-    local optionChild = GetControl(optionContainer, "ScrollChild")
-    optionChild:SetResizeToFitPadding(0, 40)
+        CT_CONTROL)
+    optionContainer:SetDimensions(645, 675)
+    optionContainer:SetAnchor(TOPLEFT, root, TOPLEFT, 365, 120)
+    local optionChild = optionContainer
 
     ui = {
         root = root,
@@ -700,7 +758,8 @@ local function CreateSettingsWindow()
         optionContainer = optionContainer,
         optionChild = optionChild,
         menuRows = {},
-        optionControls = {},
+        panelHosts = {},
+        background = { bgLeft, bgRight, underlayLeft, underlayRight, divider },
     }
 
     if type(ZO_FadeSceneFragment) == "table" and type(ZO_FadeSceneFragment.New) == "function" then
@@ -709,9 +768,18 @@ local function CreateSettingsWindow()
         ui.fragment = ZO_SimpleSceneFragment:New(root)
     end
 
+    if ui.fragment and type(ui.fragment.RegisterCallback) == "function" then
+        ui.fragment:RegisterCallback("StateChange", function(_, newState)
+            if newState == SCENE_FRAGMENT_SHOWN and type(PushActionLayerByName) == "function" then
+                PushActionLayerByName("OptionsWindow")
+            elseif newState == SCENE_FRAGMENT_HIDDEN and type(RemoveActionLayerByName) == "function" then
+                RemoveActionLayerByName("OptionsWindow")
+            end
+        end)
+    end
+
     SelectFirstPanel()
     RebuildMenuList()
-    RenderSelectedPanel()
 
     return true
 end
@@ -745,25 +813,22 @@ local function RegisterNativeSettingsPanel()
     if not KEYBOARD_OPTIONS or type(ZO_GameMenu_AddSettingPanel) ~= "function" then
         return false
     end
+    if not CreateSettingsWindow() then
+        return false
+    end
 
     panelId = KEYBOARD_OPTIONS.currentPanelId
     local nativePanelData = {
         id = panelId,
         name = PANEL_NAME,
         callback = function()
-            if SETTINGS:OpenLamHub() then
-                return
+            if ui and ui.fragment and SCENE_MANAGER then
+                SCENE_MANAGER:AddFragment(ui.fragment)
             end
-
-            if CreateSettingsWindow() then
-                if ui and ui.fragment and SCENE_MANAGER then
-                    SCENE_MANAGER:AddFragment(ui.fragment)
-                end
-                if ui and ui.root then
-                    ui.root:SetHidden(false)
-                end
-                RenderSelectedPanel()
+            if ui and ui.root then
+                ui.root:SetHidden(false)
             end
+            RenderSelectedPanel()
         end,
         unselectedCallback = function()
             if ui and ui.fragment and SCENE_MANAGER then
@@ -777,7 +842,6 @@ local function RegisterNativeSettingsPanel()
 
     KEYBOARD_OPTIONS.currentPanelId = panelId + 1
     KEYBOARD_OPTIONS.panelNames[panelId] = nativePanelData.name
-    KEYBOARD_OPTIONS.controlTable[panelId] = {}
     ZO_GameMenu_AddSettingPanel(nativePanelData)
 
     createdSettingsPanel = true
@@ -895,9 +959,10 @@ function SETTINGS.Open()
 end
 
 function SETTINGS.Initialize()
-    RegisterLamHubPanel()
-    RegisterNativeSettingsPanel()
-    return true
+    if RegisterNativeSettingsPanel() then
+        return true
+    end
+    return RegisterLamHubPanel()
 end
 
 function EZOCore.RegisterSettingsPanel(_, addonId, addonPanelId, panelData, options, lamPanel)

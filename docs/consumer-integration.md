@@ -109,20 +109,19 @@ local panelData = {
 
 local options = BuildOptions()
 
-local lamPanel
-if LibAddonMenu2 then
-    lamPanel = LibAddonMenu2:RegisterAddonPanel("EZOTools_Panel", panelData)
-    LibAddonMenu2:RegisterOptionControls("EZOTools_Panel", options)
-end
-
 if EZOCore and type(EZOCore.RegisterSettingsPanel) == "function" then
-    EZOCore:RegisterSettingsPanel("ezotools", "EZOTools_Panel", panelData, options, lamPanel)
+    EZOCore:RegisterSettingsPanel("ezotools", "EZOTools_Panel", panelData, options)
+elseif LibAddonMenu2 then
+    LibAddonMenu2:RegisterAddonPanel("EZOTools_Panel", panelData)
+    LibAddonMenu2:RegisterOptionControls("EZOTools_Panel", options)
 end
 ```
 
-The central `Settings > EZO` hub renders each registered addon's LAM controls
-inside an addon submenu. Selecting an addon therefore stays inside the EZO
-panel and does not navigate to the standard per-addon settings entry.
+The central `Settings > EZO` window renders each registered addon's LAM controls
+inside its own addon view. Selecting an addon therefore stays inside the EZO
+panel and does not create a duplicate entry in the standard addon settings
+list. The standalone LAM panel is only the compatibility fallback when
+EZOCore is unavailable.
 
 ## Local Callbacks
 

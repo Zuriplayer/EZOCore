@@ -15,9 +15,11 @@ All notable changes to EZOCore are documented in this file.
 
 ### Fixed
 
+- Uses a real native `Settings > EZO` scene fragment instead of redirecting to LibAddonMenu's standard AddOns list.
+- Adds the standard colored EZO panel header, author, version and permanent Discord feedback link.
+- Keeps the LibAddonMenu hub registration only as a compatibility fallback when native settings registration is unavailable.
 - Renders registered LibAddonMenu panels through a full LAM-compatible host in `Settings > EZO`.
-- Keeps the native `Settings > EZO` entry visible even if ESO's keyboard options panel switch rejects the custom panel id.
-- Embeds each registered addon's LibAddonMenu controls under its own submenu in the central `Settings > EZO` hub, without redirecting to the standard addon list.
+- Caches each addon settings view after first use instead of recreating controls while navigating.
 
 ## [0.1.0] - 2026-07-13
 
