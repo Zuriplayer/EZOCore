@@ -1280,7 +1280,7 @@ local function RegisterNativeSettingsPanel()
     panelId = KEYBOARD_OPTIONS.currentPanelId
     local nativePanelData = {
         id = panelId,
-        name = PANEL_NAME,
+        name = PANEL_DISPLAY_NAME,
         callback = function()
             if ui and ui.fragment and SCENE_MANAGER then
                 SCENE_MANAGER:AddFragment(ui.fragment)

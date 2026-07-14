@@ -21,7 +21,7 @@ No demasiado por sí mismo. EZOCore está pensado como una dependencia opcional 
 
 ## Panel de ajustes
 
-EZOCore es propietario del hub central `Settings > EZO`. Su índice lateral combina navegación y selectores de activación: EZOCore permanece marcado y bloqueado, mientras los demás addons EZO instalados se pueden activar o desactivar y aplicar mediante el botón común `Recargar UI`. Los addons se agrupan por su fase declarada, desde trabajos estables y mantenidos hasta versiones beta y en desarrollo; los estados archivado y sin clasificar permanecen explícitos. Cada grupo usa el icono informativo morado de EZO y mantiene su explicación en el tooltip de la cabecera. Los addons desactivados permanecen en la lista, pero no pueden mostrar sus ajustes hasta activarlos y recargar la interfaz. La ayuda específica de cada campo permanece en el tooltip de su propio control.
+EZOCore es propietario del hub central `Settings > EZO`. La entrada nativa de Ajustes usa la identidad visual de la familia EZO con la Z morada. Su índice lateral combina navegación y selectores de activación: EZOCore permanece marcado y bloqueado, mientras los demás addons EZO instalados se pueden activar o desactivar y aplicar mediante el botón común `Recargar UI`. Los addons se agrupan por su fase declarada, desde trabajos estables y mantenidos hasta versiones beta y en desarrollo; los estados archivado y sin clasificar permanecen explícitos. Cada grupo usa el icono informativo morado de EZO y mantiene su explicación en el tooltip de la cabecera. Los addons desactivados permanecen en la lista, pero no pueden mostrar sus ajustes hasta activarlos y recargar la interfaz. La ayuda específica de cada campo permanece en el tooltip de su propio control.
 
 ## Preferencia de idioma
 

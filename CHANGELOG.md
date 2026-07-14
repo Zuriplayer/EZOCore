@@ -4,6 +4,12 @@ All notable changes to EZOCore are documented in this file.
 
 ## Unreleased
 
+## [0.1.4] - 2026-07-14
+
+### Changed
+
+- Applied the EZO purple-Z branding to the native Settings menu entry.
+
 ## [0.1.3] - 2026-07-14
 
 ### Fixed
