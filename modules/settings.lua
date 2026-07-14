@@ -27,6 +27,26 @@ local LIFECYCLE_STAGES = {
     unclassified = { order = 6, nameKey = "stageUnclassified", tooltipKey = "stageUnclassifiedTooltip" },
 }
 
+-- EZO-LIFECYCLE-CATALOG-START
+-- Generated from the family ezo-addon.json files by EZOFamilyTools.
+local ADDON_LIFECYCLE_CATALOG = {
+    ["ezoalerts"] = "beta",
+    ["ezoauto"] = "beta",
+    ["ezocamsens"] = "archived",
+    ["ezochat"] = "development",
+    ["ezocombat"] = "development",
+    ["ezocursor"] = "beta",
+    ["ezocustomsupporticons"] = "development",
+    ["ezogroupframes"] = "beta",
+    ["ezohud"] = "beta",
+    ["ezokeybinds"] = "stable",
+    ["ezometter"] = "development",
+    ["ezopvp"] = "development",
+    ["ezotakingaim"] = "archived",
+    ["ezotools"] = "beta",
+}
+-- EZO-LIFECYCLE-CATALOG-END
+
 local panelsById = {}
 local panelOrder = {}
 local hubOptions = {}
@@ -196,8 +216,13 @@ local function NormalizeLifecycleStage(value)
     return nil
 end
 
-local function GetLifecycleStage(entry)
-    return entry and entry.stage or UNCLASSIFIED_STAGE
+local function GetLifecycleStage(entry, addonId)
+    if entry and entry.stage and entry.stage ~= UNCLASSIFIED_STAGE then
+        return entry.stage
+    end
+
+    local normalizedId = NormalizeId(addonId or (entry and entry.addonId))
+    return (normalizedId and ADDON_LIFECYCLE_CATALOG[normalizedId]) or UNCLASSIFIED_STAGE
 end
 
 local function GetLifecycleDefinition(stage)
@@ -234,9 +259,9 @@ local function SortPanels()
         local leftName = left and left.sortName or leftId
         local rightName = right and right.sortName or rightId
         return CompareLifecycleEntries(
-            GetLifecycleStage(left),
+            GetLifecycleStage(left, leftId),
             leftName,
-            GetLifecycleStage(right),
+            GetLifecycleStage(right, rightId),
             rightName)
     end)
 end
@@ -612,9 +637,9 @@ local function BuildInstalledAddonsOptions()
         local leftId = GetAddOnRecordId(left)
         local rightId = GetAddOnRecordId(right)
         return CompareLifecycleEntries(
-            GetLifecycleStage(leftId and panelsById[leftId]),
+            GetLifecycleStage(leftId and panelsById[leftId], leftId),
             string.lower(StripMarkup(left.title)),
-            GetLifecycleStage(rightId and panelsById[rightId]),
+            GetLifecycleStage(rightId and panelsById[rightId], rightId),
             string.lower(StripMarkup(right.title)))
     end)
 
@@ -624,7 +649,7 @@ local function BuildInstalledAddonsOptions()
         local folder = StripMarkup(record.name)
         local state = tostring(record.state or "")
         local addonId = GetAddOnRecordId(record)
-        local stage = GetLifecycleStage(addonId and panelsById[addonId])
+        local stage = GetLifecycleStage(addonId and panelsById[addonId], addonId)
         if stage ~= currentStage then
             local definition = GetLifecycleDefinition(stage)
             options[#options + 1] = CreateInfoHeader(T(definition.nameKey), T(definition.tooltipKey))
@@ -720,7 +745,7 @@ RebuildHubOptions = function()
         local entry = panelsById[addonId]
         if entry then
             hasAddonControls = true
-            local stage = GetLifecycleStage(entry)
+            local stage = GetLifecycleStage(entry, addonId)
             if stage ~= currentStage then
                 local definition = GetLifecycleDefinition(stage)
                 addonControls[#addonControls + 1] = CreateInfoHeader(
@@ -834,7 +859,7 @@ local function BuildMenuRows()
                 addonId = addonId,
                 entry = panelsById[addonId],
                 record = record,
-                stage = GetLifecycleStage(panelsById[addonId]),
+                stage = GetLifecycleStage(panelsById[addonId], addonId),
             }
             rows[#rows + 1] = rowData
             rowsById[addonId] = rowData
@@ -846,12 +871,12 @@ local function BuildMenuRows()
         local rowData = rowsById[addonId]
         if rowData then
             rowData.entry = panelsById[addonId]
-            rowData.stage = GetLifecycleStage(rowData.entry)
+            rowData.stage = GetLifecycleStage(rowData.entry, addonId)
         else
             rowData = {
                 addonId = addonId,
                 entry = panelsById[addonId],
-                stage = GetLifecycleStage(panelsById[addonId]),
+                stage = GetLifecycleStage(panelsById[addonId], addonId),
             }
             rows[#rows + 1] = rowData
             rowsById[addonId] = rowData
