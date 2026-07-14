@@ -66,6 +66,7 @@ local panelId
 local selectedPanelId
 local createdSettingsPanel = false
 local createdLamHubPanel = false
+local layoutCallbacksRegistered = false
 local controlCounter = 0
 local RebuildHubOptions
 local settingsSv
@@ -88,6 +89,14 @@ local STRINGS = {
         languageEnglish = "English",
         languageSpanish = "Spanish",
         languageAddon = "Let each addon choose",
+        layoutHeader = "Interface layout",
+        layoutHeaderTooltip = "Temporarily unlock movable EZO windows and previews. They remain hidden while Settings is open and appear when you return to the main HUD.",
+        moveAll = "Move all EZO windows",
+        moveAllTooltip = "Enable movement for every registered EZO surface. Close Settings to arrange them, then return here to disable movement.",
+        individualWindows = "Individual windows",
+        individualWindowsTooltip = "Enable or disable movement for one registered EZO surface without changing the others.",
+        noMovableSurfaces = "No loaded EZO addon has registered a movable surface.",
+        surfaceMoveTooltip = "Temporarily enable movement for this surface. Its addon remains responsible for position and preview behavior.",
         noOptions = "This addon has not registered settings yet.",
         noLam = "LibAddonMenu-2.0 is not available. Option controls cannot be rendered.",
         unsupportedControl = "Unsupported setting control: %s",
@@ -133,6 +142,14 @@ local STRINGS = {
         languageEnglish = "Inglés",
         languageSpanish = "Español",
         languageAddon = "Dejar que cada addon elija",
+        layoutHeader = "Disposición de interfaz",
+        layoutHeaderTooltip = "Desbloquea temporalmente ventanas y previsualizaciones movibles de EZO. Permanecen ocultas mientras Settings está abierto y aparecen al volver al HUD principal.",
+        moveAll = "Mover todas las ventanas EZO",
+        moveAllTooltip = "Activa el movimiento de todas las superficies EZO registradas. Cierra Settings para colocarlas y vuelve aquí para desactivar el movimiento.",
+        individualWindows = "Ventanas individuales",
+        individualWindowsTooltip = "Activa o desactiva el movimiento de una superficie EZO registrada sin cambiar las demás.",
+        noMovableSurfaces = "Ningún addon EZO cargado ha registrado una superficie movible.",
+        surfaceMoveTooltip = "Activa temporalmente el movimiento de esta superficie. Su addon sigue siendo responsable de la posición y la previsualización.",
         noOptions = "Este addon todavía no ha registrado opciones.",
         noLam = "LibAddonMenu-2.0 no está disponible. No se pueden dibujar controles de opciones.",
         unsupportedControl = "Control de ajuste no soportado: %s",
@@ -713,6 +730,88 @@ local function BuildLanguageOptions()
     }
 end
 
+local function GetLayoutService()
+    if EZOCore and type(EZOCore.GetService) == "function" then
+        return EZOCore:GetService("family.layout", 1)
+    end
+    return nil
+end
+
+local function RefreshLayoutOptions()
+    RebuildHubOptions()
+    SETTINGS:RefreshCurrentPanel()
+end
+
+local function CreateLayoutSurfaceOption(service, surface)
+    local surfaceId = surface.id
+    return {
+        type = "checkbox",
+        name = string.format("%s - %s", surface.addonName, surface.name),
+        tooltip = surface.tooltip ~= "" and surface.tooltip or T("surfaceMoveTooltip"),
+        getFunc = function()
+            return service:IsSurfaceEditMode(surfaceId)
+        end,
+        setFunc = function(value)
+            service:SetSurfaceEditMode(surfaceId, value == true)
+            RefreshLayoutOptions()
+        end,
+        disabled = function()
+            local current = service:IsSurfaceEditMode(surfaceId)
+            local currentSurfaces = service:GetSurfaces()
+            for _, currentSurface in ipairs(currentSurfaces) do
+                if currentSurface.id == surfaceId then
+                    return not current and currentSurface.available == false
+                end
+            end
+            return true
+        end,
+        default = false,
+        width = "full",
+    }
+end
+
+local function BuildLayoutOptions()
+    local service = GetLayoutService()
+    local surfaces = service and service:GetSurfaces() or {}
+    local options = {
+        CreateInfoHeader(T("layoutHeader"), T("layoutHeaderTooltip")),
+        {
+            type = "checkbox",
+            name = T("moveAll"),
+            tooltip = T("moveAllTooltip"),
+            getFunc = function()
+                return service and service:AreAllSurfacesEditing() or false
+            end,
+            setFunc = function(value)
+                if service then
+                    service:SetAllEditMode(value == true)
+                    RefreshLayoutOptions()
+                end
+            end,
+            disabled = function()
+                return not service or #service:GetSurfaces() == 0
+            end,
+            default = false,
+            width = "full",
+        },
+        CreateInfoHeader(T("individualWindows"), T("individualWindowsTooltip")),
+    }
+
+    if #surfaces == 0 then
+        options[#options + 1] = {
+            type = "description",
+            text = T("noMovableSurfaces"),
+        }
+        return options
+    end
+
+    for _, surface in ipairs(surfaces) do
+        options[#options + 1] = CreateLayoutSurfaceOption(service, surface)
+    end
+
+    return options
+end
+
 local function BuildInstalledAddonsOptions()
     ApplyFirstSeenAddonDefaults()
     local manager = ResolveAddOnManager()
@@ -831,6 +930,10 @@ RebuildHubOptions = function()
     local languageOptions = BuildLanguageOptions()
     for index = 1, #languageOptions do
         hubOptions[#hubOptions + 1] = languageOptions[index]
+    end
+    local layoutOptions = BuildLayoutOptions()
+    for index = 1, #layoutOptions do
+        hubOptions[#hubOptions + 1] = layoutOptions[index]
     end
 
     local addonControls = {
@@ -1537,6 +1640,13 @@ function SETTINGS.Open()
 end
 
 function SETTINGS.Initialize()
+    if not layoutCallbacksRegistered and type(EZOCore.RegisterCallback) == "function" then
+        EZOCore:RegisterCallback("EZOCore:LayoutSurfaceRegistered", function()
+            RebuildHubOptions()
+            SETTINGS:RefreshCurrentPanel()
+        end)
+        layoutCallbacksRegistered = true
+    end
     ApplyFirstSeenAddonDefaults()
     if RegisterNativeSettingsPanel() then
         return true

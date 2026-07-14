@@ -123,6 +123,33 @@ LibDebugLogger mientras EZOCore siga siendo opcional. No se debe usar `Error`
 para diagnostico ordinario; queda reservado para errores capturados y
 suprimidos por el propio addon.
 
+## Registrar Una Superficie Movible
+
+Usa `family.layout` solo para superficies HUD de posición libre que ya tengan
+un modo mover independiente:
+
+```lua
+local layout = EZOCore and EZOCore:GetService("family.layout", 1)
+if layout then
+    layout:RegisterSurface({
+        id = "example.alert",
+        addonId = "example",
+        addonName = "Example",
+        name = "Ventana de avisos",
+        setEditMode = function(enabled)
+            Example.SetMoveMode(enabled)
+            return Example.IsMoveMode() == enabled
+        end,
+        isEditMode = Example.IsMoveMode,
+    })
+end
+```
+
+El estado de movimiento debe limitarse a la sesión. El addon conserva la
+previsualización, visibilidad HUD/HUD_UI, guardado de posición y fallback local
+cuando EZOCore no está disponible. No registres retículos, marcadores ligados a
+unidades, controles nativos de ESO ni paneles de Settings.
+
 ## Registrar Un Servicio
 
 Los servicios son tablas locales explicitas. EZOCore no ejecuta funciones por

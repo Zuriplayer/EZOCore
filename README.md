@@ -11,6 +11,7 @@ EZOCore is currently a **public beta** in a local-only service preview phase:
 - It exposes a small local registry/service/callback API that runs entirely inside a single ESO client.
 - It owns a central `Settings > EZO` menu for EZO-family addon settings, using EZO-standard informational section headers.
 - It provides a shared EZO-family language mode: automatic, English, Spanish, or "let each addon choose"; standalone addons keep their own fallback when EZOCore is not installed or the central mode allows local choices.
+- It coordinates temporary global and per-window movement modes for EZO addons that register compatible HUD surfaces; previews remain hidden in Settings and appear after returning to the main HUD.
 - There is no active group sync and no communication between players yet. EZOCore can detect LibGroupBroadcast and expose a disabled `family.groupPresence` service, but sending stays blocked until official protocol IDs are reserved and the compact wire format is finalized.
 - There is no remote automation triggered from inside the game; the GitHub Actions in this repo are manual, developer-triggered workflows for packaging and Discord status updates.
 - Public beta means the repository is visible for review/testing, but the implemented feature set is still intentionally limited to local services.
@@ -22,6 +23,8 @@ Not much on its own. EZOCore is meant to be an optional shared dependency for ot
 ## Settings panel
 
 EZOCore owns the central `Settings > EZO` hub. The native Settings entry uses the EZO family branding with its purple Z. Programmatic openings from an integrated addon select that addon's own EZO settings view directly. Its left index combines addon navigation with enable/disable selectors: EZOCore remains checked and locked, while other installed EZO addons can be toggled and applied with the shared `Reload UI` button. Addons are grouped by their declared lifecycle stage in maturity order: Stable, Maintenance, Beta, Development, Unclassified and Archived. Archived addons therefore remain visible at the end of the list. Newly discovered Development and Unclassified addons start disabled and require reload before their already loaded code is removed; enabling one manually is remembered and is not overridden later. The first upgrade to this policy preserves all currently installed addon states. Each group uses the EZO purple information icon and keeps its explanation in the header tooltip. Disabled addons remain listed but cannot expose their settings until they are enabled and the UI reloads. Field-specific help remains on each setting control.
+
+The Interface layout section can unlock every registered EZO surface at once or one surface at a time. Close Settings to see and arrange the previews in HUD/HUD_UI, then return to the same section to disable movement. Edit state is never persisted; each consumer addon continues to own its position, scale and standalone movement control.
 
 ## Language preference
 
@@ -62,6 +65,7 @@ Consumer integration examples live in [docs/consumer-integration.md](docs/consum
 - `family.groupPresence` API v1: remote peer presence facade, currently disabled until LibGroupBroadcast IDs and the compact protocol are reserved/finalized.
 - `family.language` API v1: shared local language preference for EZO-family addons.
 - `family.debug` API v1: optional shared LibDebugLogger and DebugLogViewer access with no chat fallback or runtime work when the backend is unavailable.
+- `family.layout` API v1: session-only registration plus global and individual movement coordination for compatible EZO HUD surfaces.
 - local addon/capability registry: local-only discovery for consumers such as EZOTools.
 
 ## Requirements

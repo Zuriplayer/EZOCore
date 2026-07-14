@@ -4,6 +4,13 @@ All notable changes to EZOCore are documented in this file.
 
 ## Unreleased
 
+## [0.1.9] - 2026-07-15
+
+### Added
+
+- Session-only `family.layout` API v1 for registering and coordinating movable EZO interface surfaces.
+- Global and per-surface movement controls in `Settings > EZO`, with previews remaining restricted to HUD/HUD_UI.
+
 ## [0.1.8] - 2026-07-14
 
 ### Added

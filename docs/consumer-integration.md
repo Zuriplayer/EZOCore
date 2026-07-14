@@ -121,6 +121,33 @@ Functional addons must retain their standalone optional LibDebugLogger path
 while EZOCore remains optional. Do not use `Error` for ordinary diagnostics;
 reserve it for errors caught and suppressed by addon code.
 
+## Register A Movable Surface
+
+Use `family.layout` only for free-position HUD surfaces that already have a
+standalone move mode:
+
+```lua
+local layout = EZOCore and EZOCore:GetService("family.layout", 1)
+if layout then
+    layout:RegisterSurface({
+        id = "example.alert",
+        addonId = "example",
+        addonName = "Example",
+        name = "Alert window",
+        setEditMode = function(enabled)
+            Example.SetMoveMode(enabled)
+            return Example.IsMoveMode() == enabled
+        end,
+        isEditMode = Example.IsMoveMode,
+    })
+end
+```
+
+Movement state must remain session-only. The addon owns its preview, HUD/HUD_UI
+visibility, position saving and local fallback when EZOCore is unavailable.
+Do not register reticles, unit-attached markers, native ESO controls or Settings
+panels.
+
 ## Register A Service
 
 Services are explicit local tables. EZOCore does not execute functions by name.

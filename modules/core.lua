@@ -24,6 +24,7 @@ local function OnAddOnLoaded(_, addonName)
             "family.presence",
             "family.debug",
             "family.language",
+            "family.layout",
             "family.settings",
         },
     })
@@ -38,6 +39,10 @@ local function OnAddOnLoaded(_, addonName)
 
     if EZOCore.GroupPresence and type(EZOCore.GroupPresence.Initialize) == "function" then
         EZOCore.GroupPresence.Initialize()
+    end
+
+    if EZOCore.Layout and type(EZOCore.Layout.Initialize) == "function" then
+        EZOCore.Layout.Initialize()
     end
 
     if EZOCore.InitializeSettings then
