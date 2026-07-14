@@ -30,10 +30,10 @@ local SETTINGS_DEFAULTS = {
 local LIFECYCLE_STAGES = {
     stable = { order = 1, nameKey = "stageStable", tooltipKey = "stageStableTooltip" },
     maintenance = { order = 2, nameKey = "stageMaintenance", tooltipKey = "stageMaintenanceTooltip" },
-    archived = { order = 3, nameKey = "stageArchived", tooltipKey = "stageArchivedTooltip" },
-    beta = { order = 4, nameKey = "stageBeta", tooltipKey = "stageBetaTooltip" },
-    development = { order = 5, nameKey = "stageDevelopment", tooltipKey = "stageDevelopmentTooltip" },
-    unclassified = { order = 6, nameKey = "stageUnclassified", tooltipKey = "stageUnclassifiedTooltip" },
+    beta = { order = 3, nameKey = "stageBeta", tooltipKey = "stageBetaTooltip" },
+    development = { order = 4, nameKey = "stageDevelopment", tooltipKey = "stageDevelopmentTooltip" },
+    unclassified = { order = 5, nameKey = "stageUnclassified", tooltipKey = "stageUnclassifiedTooltip" },
+    archived = { order = 6, nameKey = "stageArchived", tooltipKey = "stageArchivedTooltip" },
 }
 
 -- EZO-LIFECYCLE-CATALOG-START
@@ -1354,8 +1354,12 @@ local function SelectSettingsNode()
         return
     end
 
-    local children = { settingsMenu:GetChildren() }
-    for index = 1, (children and #children or 0) do
+    local children = settingsMenu:GetChildren()
+    if type(children) ~= "table" then
+        return
+    end
+
+    for index = 1, #children do
         local child = children[index]
         if child and type(child.GetData) == "function" then
             local data = child:GetData()

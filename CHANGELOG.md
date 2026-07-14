@@ -4,6 +4,16 @@ All notable changes to EZOCore are documented in this file.
 
 ## Unreleased
 
+## [0.1.7] - 2026-07-14
+
+### Changed
+
+- Orders lifecycle groups by maturity and keeps Archived addons at the end of the EZO settings list.
+
+### Fixed
+
+- Opens the native `Settings > EZO` node reliably by consuming the tree node list returned by `GetChildren()` directly, so integrated addons can land on their requested EZO settings view.
+
 ## [0.1.6] - 2026-07-14
 
 ### Fixed
