@@ -93,17 +93,28 @@ state once the protocol is activated:
 local groupPresence = EZOCore and EZOCore:GetService("family.groupPresence", 1)
 local status = groupPresence and groupPresence:GetStatus()
 if status and status.active then
-    local state = groupPresence:GetPeerCompatibility("group1", "ezotools", "group.activities", 1)
+    local state = groupPresence:GetPeerCompatibility(
+        "group1", "ezotools", "group.activities", 1, 10145)
 end
 ```
 
-Current builds report `protocolDefinitionPending` and do not send data. Do not
-show unsolicited warnings for that state.
+The final two arguments are the minimum local API version and optional minimum
+numeric `AddOnVersion`. Use the latter for build compatibility; do not compare
+display-version strings.
 
-The reserved-ID draft and wire format are documented in
-[group-presence-protocol.md](group-presence-protocol.md). The intended protocol
-name is `EZO_CORE_GROUP_V1` and the intended resync custom event name is
-`EZO_CORE_GROUP_REQUEST_V1`.
+Transport can still be unavailable when LibGroupBroadcast is missing, the user
+has disabled the protocol, or the player is not grouped. Do not show
+unsolicited warnings for those normal states.
+
+When transport is enabled, compatibility is based on stable addon
+IDs, numeric `AddOnVersion`, local API version and declared capability bits.
+Unknown or expired peers must remain `unknown`; consumers must not infer that an
+addon is absent until a valid presence for that current group member exists.
+
+The reserved IDs and wire format are documented in
+[group-presence-protocol.md](group-presence-protocol.md). The protocol is
+`EZO_CORE_GROUP_V1` (`513`) and the resync custom event is
+`EZO_CORE_GROUP_REQUEST_V1` (`3`).
 
 ## Use Shared Diagnostics
 

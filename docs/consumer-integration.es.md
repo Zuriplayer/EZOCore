@@ -93,17 +93,29 @@ estado de peers cuando el protocolo se active:
 local groupPresence = EZOCore and EZOCore:GetService("family.groupPresence", 1)
 local status = groupPresence and groupPresence:GetStatus()
 if status and status.active then
-    local state = groupPresence:GetPeerCompatibility("group1", "ezotools", "group.activities", 1)
+    local state = groupPresence:GetPeerCompatibility(
+        "group1", "ezotools", "group.activities", 1, 10145)
 end
 ```
 
-Las builds actuales devuelven `protocolDefinitionPending` y no envian datos. No
-se deben mostrar avisos no solicitados al jugador por ese estado.
+Los dos últimos argumentos son la versión mínima de la API local y el
+`AddOnVersion` numérico mínimo opcional. Usa este último para compatibilidad de
+builds; no compares cadenas de versión visibles.
 
-La ficha de reserva y el formato por red estan documentados en
-[group-presence-protocol.es.md](group-presence-protocol.es.md). El nombre de
-protocolo previsto es `EZO_CORE_GROUP_V1` y el custom event de resincronizacion
-previsto es `EZO_CORE_GROUP_REQUEST_V1`.
+El transporte puede no estar disponible si falta LibGroupBroadcast, si el
+usuario ha desactivado el protocolo o si el jugador no esta en grupo. No se
+deben mostrar avisos no solicitados al jugador por esos estados normales.
+
+Cuando el transporte este activo, la compatibilidad se basará en IDs estables de
+addon, `AddOnVersion` numérico, versión de API local y bits de capacidades
+declaradas. Los peers desconocidos o caducados deben seguir como `unknown`; un
+consumidor no debe deducir que falta un addon hasta recibir una presencia válida
+del miembro actual del grupo.
+
+Los IDs reservados y el formato por red estan documentados en
+[group-presence-protocol.es.md](group-presence-protocol.es.md). El protocolo es
+`EZO_CORE_GROUP_V1` (`513`) y el custom event de resincronizacion es
+`EZO_CORE_GROUP_REQUEST_V1` (`3`).
 
 ## Usar Diagnostico Comun
 

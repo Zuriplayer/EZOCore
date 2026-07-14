@@ -4,6 +4,21 @@ All notable changes to EZOCore are documented in this file.
 
 ## Unreleased
 
+## [0.1.11] - 2026-07-15
+
+### Added
+
+- Activated reserved LibGroupBroadcast IDs for `EZO_CORE_GROUP_V1` (`513`) and
+  `EZO_CORE_GROUP_REQUEST_V1` (`3`).
+
+### Changed
+
+- Reworked the inactive `family.groupPresence` wire scaffold to use only public
+  LibGroupBroadcast field factories and compact stable addon keys.
+- Added strict validation for current group membership, protocol version,
+  wrap-aware sequences, TTL, addon records and leader activity-state authority.
+- Prunes cached remote peers when the current group roster changes.
+
 ## [0.1.10] - 2026-07-15
 
 ### Added
