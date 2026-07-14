@@ -4,6 +4,8 @@ All notable changes to EZOCore are documented in this file.
 
 ## Unreleased
 
+## [0.1.1] - 2026-07-14
+
 ### Added
 
 - Public beta repository metadata and README wording while keeping the implemented scope local-only.
@@ -12,6 +14,8 @@ All notable changes to EZOCore are documented in this file.
 - Central `Settings > EZO` service and native settings entry for EZO-family addon panels.
 - `EZOCore:RegisterSettingsPanel`, `EZOCore:GetSettingsPanels`, `EZOCore:OpenSettingsPanel`, `EZOCore:RefreshSettingsPanel`, and `EZOCore:OpenSettings`.
 - Installed EZO addon status view with enable/disable controls, excluding EZOCore itself.
+- EZO-standard purple informational section headers for EZOCore's own settings hub sections.
+- Account-wide EZO-family language preference with `family.language` API v1 and `EZO_CORE_LANGUAGE_CHANGED`.
 
 ### Fixed
 

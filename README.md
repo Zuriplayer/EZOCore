@@ -9,7 +9,8 @@ Local service layer for EZO addons in *The Elder Scrolls Online*: addon registry
 EZOCore is currently a **public beta** in a local-only service preview phase:
 
 - It exposes a small local registry/service/callback API that runs entirely inside a single ESO client.
-- It owns a central `Settings > EZO` menu for EZO-family addon settings.
+- It owns a central `Settings > EZO` menu for EZO-family addon settings, using EZO-standard informational section headers.
+- It provides a shared EZO-family language preference for addons that choose to inherit it, while standalone addons keep their own fallback.
 - There is no group sync, no LibGroupBroadcast usage, and no communication between players yet.
 - There is no remote automation triggered from inside the game; the GitHub Actions in this repo are manual, developer-triggered workflows for packaging and Discord status updates.
 - Public beta means the repository is visible for review/testing, but the implemented feature set is still intentionally limited to local services.
@@ -17,6 +18,14 @@ EZOCore is currently a **public beta** in a local-only service preview phase:
 ## Does this addon do anything by itself?
 
 Not much on its own. EZOCore is meant to be an optional shared dependency for other EZO addons (such as EZOTools or EZOGroupFrames). Those addons keep working perfectly without EZOCore installed; when it is present, they will be able to use `## OptionalDependsOn: EZOCore` to discover shared services instead of duplicating that logic.
+
+## Settings panel
+
+EZOCore owns the central `Settings > EZO` hub. Its own sections use the EZO-family purple information icon in section headers: general section help is attached to the header tooltip, while field-specific help remains on each setting control. Dynamic operational messages, such as unavailable addon-manager APIs or reload-required state after toggling installed EZO addons, remain visible in the panel.
+
+## Language preference
+
+EZOCore stores one account-wide EZO-family language preference: automatic, English or Spanish. Addons that integrate with EZOCore can inherit that preference; addons installed without EZOCore must still expose their own local language fallback.
 
 ## API (local phase)
 
@@ -32,17 +41,23 @@ Not much on its own. EZOCore is meant to be an optional shared dependency for ot
 - `EZOCore:OpenSettingsPanel(addonId)`
 - `EZOCore:RefreshSettingsPanel()`
 - `EZOCore:OpenSettings()`
+- `EZOCore:GetConfiguredLanguage()`
+- `EZOCore:GetLanguage()`
+- `EZOCore:GetClientLanguage()`
+- `EZOCore:SetLanguage(language)`
+- `EZOCore:IsSupportedLanguage(language)`
 - `EZOCore:RegisterCallback(eventName, callback)`
 - `EZOCore:UnregisterCallback(eventName, callback)`
 - `EZOCore:FireCallback(eventName, ...)`
 
-All of the above run locally in memory. Nothing is persisted to SavedVariables and nothing is sent over the network.
+All of the above run locally in the current client. The global language preference is stored in EZOCore SavedVariables; addon registry, services and callbacks remain session-local and nothing is sent over the network.
 
 Addons should register with stable lowercase EZO ids, visible version, numeric `AddOnVersion`, local API version and capabilities. EZOCore rejects invalid metadata without breaking the caller.
 
 Consumer integration examples live in [docs/consumer-integration.md](docs/consumer-integration.md). The current implemented services are:
 
 - `family.settings` API v1: central `Settings > EZO` registration and installed-addon status view.
+- `family.language` API v1: shared local language preference for EZO-family addons.
 - local addon/capability registry: local-only discovery for consumers such as EZOTools.
 
 ## Requirements

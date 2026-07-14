@@ -37,6 +37,8 @@ globals = {
     "ZO_FadeSceneFragment",
     "ZO_GameMenu_AddSettingPanel",
     "ZO_GameMenu_InGame",
+    "ZO_SavedVars",
     "ZO_ScrollContainer",
     "ZO_SimpleSceneFragment",
+    "zo_strformat",
 }

@@ -3,14 +3,14 @@
   "addon": {
     "id": "ezocore",
     "name": "EZOCore",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "status": "beta",
     "phase": "public-beta",
     "visibility": "public",
     "manifest": "EZOCore.txt",
     "package": {
       "rootFolderName": "EZOCore",
-      "zipName": "EZOCore_v0.1.0.zip",
+      "zipName": "EZOCore_v0.1.1.zip",
       "outputPath": "dist",
       "include": [
         "*.txt",

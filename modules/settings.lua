@@ -16,6 +16,7 @@ local CORE_ADDON_NAME = "EZOCore"
 local MANAGER_PANEL_ID = "__ezo_installed_addons"
 local HUB_PANEL_ID = "EZOCore_EZO_Panel"
 local WINDOW_NAME = "EZOCoreSettingsWindow"
+local INFO_HEADER_TEXTURE = "EsoUI/Art/Miscellaneous/help_icon.dds"
 
 local panelsById = {}
 local panelOrder = {}
@@ -33,6 +34,16 @@ local STRINGS = {
     en = {
         installedAddons = "Installed EZO addons",
         installedAddonsTooltip = "Enable or disable installed EZO family addons. Changes require reload.",
+        addonSettingsTooltip = "Open settings registered by installed EZO addons through EZOCore.",
+        languageHeader = "Language",
+        languageHeaderTooltip = "Choose the shared language preference used by EZO addons "
+            .. "that inherit EZOCore settings.",
+        language = "EZO family language",
+        languageTooltip = "Automatic follows the ESO client language. Individual addons can still keep "
+            .. "their own fallback when EZOCore is not installed.",
+        languageAuto = "Automatic (ESO client)",
+        languageEnglish = "English",
+        languageSpanish = "Spanish",
         noOptions = "This addon has not registered settings yet.",
         noLam = "LibAddonMenu-2.0 is not available. Option controls cannot be rendered.",
         unsupportedControl = "Unsupported setting control: %s",
@@ -45,17 +56,28 @@ local STRINGS = {
         disabled = "Disabled",
         folder = "Folder: %s",
         state = "State: %s",
-        hubDescription = "Central access point for EZO family addon settings.",
+        hubHeader = "EZO settings hub",
+        hubHeaderTooltip = "Central access point for EZO family addon settings.",
         addonSettings = "Addon settings",
     },
     es = {
         installedAddons = "Addons EZO instalados",
         installedAddonsTooltip = "Activa o desactiva addons instalados de la familia EZO. "
             .. "Los cambios requieren recarga.",
-        noOptions = "Este addon todavia no ha registrado opciones.",
-        noLam = "LibAddonMenu-2.0 no esta disponible. No se pueden dibujar controles de opciones.",
+        addonSettingsTooltip = "Abre la configuración registrada por addons EZO instalados mediante EZOCore.",
+        languageHeader = "Idioma",
+        languageHeaderTooltip = "Elige la preferencia de idioma común usada por addons EZO "
+            .. "que heredan los ajustes de EZOCore.",
+        language = "Idioma de la familia EZO",
+        languageTooltip = "Automático sigue el idioma del cliente ESO. Los addons individuales conservan "
+            .. "su fallback propio cuando EZOCore no está instalado.",
+        languageAuto = "Automático (cliente ESO)",
+        languageEnglish = "Inglés",
+        languageSpanish = "Español",
+        noOptions = "Este addon todavía no ha registrado opciones.",
+        noLam = "LibAddonMenu-2.0 no está disponible. No se pueden dibujar controles de opciones.",
         unsupportedControl = "Control de ajuste no soportado: %s",
-        addOnManagerUnavailable = "La API del gestor de addons de ESO no esta disponible en este contexto.",
+        addOnManagerUnavailable = "La API del gestor de addons de ESO no está disponible en este contexto.",
         reloadUi = "Recargar UI",
         reloadUiTooltip = "Aplica cambios de carga/descarga de addons.",
         reloadRequired = "Hace falta recargar para aplicar cambios de carga de addons.",
@@ -64,12 +86,19 @@ local STRINGS = {
         disabled = "Desactivado",
         folder = "Carpeta: %s",
         state = "Estado: %s",
-        hubDescription = "Acceso central a la configuracion de los addons de la familia EZO.",
-        addonSettings = "Configuracion de addons",
+        hubHeader = "Hub de configuración EZO",
+        hubHeaderTooltip = "Acceso central a la configuración de los addons de la familia EZO.",
+        addonSettings = "Configuración de addons",
     },
 }
 
 local function GetLanguage()
+    if EZOCore
+        and type(EZOCore.GetLanguage) == "function"
+        and type(EZOCore.GetConfiguredLanguage) == "function" then
+        return EZOCore:GetLanguage()
+    end
+
     if type(GetCVar) == "function" then
         local value = GetCVar("Language.2")
         if type(value) == "string" and string.lower(value) == "es" then
@@ -113,6 +142,20 @@ local function StripMarkup(value)
     text = string.gsub(text, "|[Rr]", "")
     return text
 end
+
+local function CreateInfoHeader(name, tooltip)
+    return {
+        type = "header",
+        name = zo_strformat(
+            "<<1>> |cB040FF|t26:26:<<2>>:inheritcolor|t|r",
+            tostring(name or ""),
+            INFO_HEADER_TEXTURE
+        ),
+        tooltip = tooltip,
+    }
+end
+
+SETTINGS.CreateInfoHeader = CreateInfoHeader
 
 local function SortPanels()
     table.sort(panelOrder, function(leftId, rightId)
@@ -383,15 +426,48 @@ local function ResolveOptions(entry)
     return nil
 end
 
+local RebuildHubOptions
+
+local function BuildLanguageOptions()
+    return {
+        CreateInfoHeader(T("languageHeader"), T("languageHeaderTooltip")),
+        {
+            type = "dropdown",
+            name = T("language"),
+            tooltip = T("languageTooltip"),
+            choices = {
+                T("languageAuto"),
+                T("languageEnglish"),
+                T("languageSpanish"),
+            },
+            choicesValues = {
+                "auto",
+                "en",
+                "es",
+            },
+            getFunc = function()
+                if EZOCore and type(EZOCore.GetConfiguredLanguage) == "function" then
+                    return EZOCore:GetConfiguredLanguage()
+                end
+                return "auto"
+            end,
+            setFunc = function(value)
+                if EZOCore and type(EZOCore.SetLanguage) == "function" then
+                    EZOCore:SetLanguage(value)
+                    RebuildHubOptions()
+                    SETTINGS:RefreshCurrentPanel()
+                end
+            end,
+        },
+    }
+end
+
 local function BuildInstalledAddonsOptions()
     local manager = GetAddOnManager()
     local count = GetAddOnCount(manager)
     local canSet = CanSetAddOnEnabled()
     local options = {
-        {
-            type = "description",
-            text = T("installedAddonsTooltip"),
-        },
+        CreateInfoHeader(T("installedAddons"), T("installedAddonsTooltip")),
     }
 
     if not count then
@@ -454,6 +530,15 @@ local function BuildInstalledAddonsOptions()
     return options
 end
 
+local function BuildCoreOptions()
+    local options = BuildLanguageOptions()
+    local installedOptions = BuildInstalledAddonsOptions()
+    for index = 1, #installedOptions do
+        options[#options + 1] = installedOptions[index]
+    end
+    return options
+end
+
 local function BuildManagerEntry()
     return {
         addonId = MANAGER_PANEL_ID,
@@ -467,26 +552,31 @@ local function BuildManagerEntry()
             feedback = FEEDBACK_URL,
             registerForRefresh = true,
         },
-        options = BuildInstalledAddonsOptions,
+        options = BuildCoreOptions,
         sortName = "000 " .. T("installedAddons"),
     }
 end
 
-local function RebuildHubOptions()
+function RebuildHubOptions()
     for key in pairs(hubOptions) do
         hubOptions[key] = nil
     end
 
-    hubOptions[#hubOptions + 1] = {
-        type = "description",
-        text = T("hubDescription"),
-    }
+    hubOptions[#hubOptions + 1] = CreateInfoHeader(T("hubHeader"), T("hubHeaderTooltip"))
+    local languageOptions = BuildLanguageOptions()
+    for index = 1, #languageOptions do
+        hubOptions[#hubOptions + 1] = languageOptions[index]
+    end
 
-    local addonControls = {}
+    local addonControls = {
+        CreateInfoHeader(T("addonSettings"), T("addonSettingsTooltip")),
+    }
+    local hasAddonControls = false
     SortPanels()
     for _, addonId in ipairs(panelOrder) do
         local entry = panelsById[addonId]
         if entry then
+            hasAddonControls = true
             local panelData = entry.panelData or {}
             local displayName = StripMarkup(panelData.displayName or panelData.name or entry.addonId)
             local controls = ResolveOptions(entry)
@@ -507,7 +597,7 @@ local function RebuildHubOptions()
         end
     end
 
-    if #addonControls == 0 then
+    if not hasAddonControls then
         addonControls[#addonControls + 1] = {
             type = "description",
             text = T("noOptions"),
@@ -517,6 +607,7 @@ local function RebuildHubOptions()
     hubOptions[#hubOptions + 1] = {
         type = "submenu",
         name = T("addonSettings"),
+        tooltip = T("addonSettingsTooltip"),
         controls = addonControls,
     }
 

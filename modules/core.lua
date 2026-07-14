@@ -10,6 +10,10 @@ local function OnAddOnLoaded(_, addonName)
 
     EVENT_MANAGER:UnregisterForEvent(EZOCore.name, EVENT_ADD_ON_LOADED)
 
+    if EZOCore.Language and type(EZOCore.Language.Initialize) == "function" then
+        EZOCore.Language.Initialize()
+    end
+
     EZOCore:RegisterAddon({
         id = "ezocore",
         name = EZOCore.name,
@@ -18,6 +22,7 @@ local function OnAddOnLoaded(_, addonName)
         apiVersion = EZOCore.apiVersion,
         capabilities = {
             "family.presence",
+            "family.language",
             "family.settings",
         },
     })
