@@ -20,6 +20,7 @@ All notable changes to EZOCore are documented in this file.
 - Keeps the LibAddonMenu hub registration only as a compatibility fallback when native settings registration is unavailable.
 - Renders registered LibAddonMenu panels through a full LAM-compatible host in `Settings > EZO`.
 - Caches each addon settings view after first use instead of recreating controls while navigating.
+- Preserves LibAddonMenu half-width controls in their normal two-column layout inside the EZO host.
 
 ## [0.1.0] - 2026-07-13
 

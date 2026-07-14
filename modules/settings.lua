@@ -281,6 +281,31 @@ local function UnsupportedControl(parent, widgetData)
     return label
 end
 
+local function PairHalfWidthControls(parent, leftWidget, rightWidget)
+    local containerParent = parent.scroll or parent
+    local panel = parent.panel or containerParent
+
+    controlCounter = controlCounter + 1
+    local container = WINDOW_MANAGER:CreateControl(
+        WINDOW_NAME .. "TwinContainer" .. controlCounter,
+        containerParent,
+        CT_CONTROL)
+    container:SetResizeToFitDescendents(true)
+    container:SetAnchor(select(2, leftWidget:GetAnchor(0)))
+
+    leftWidget:ClearAnchors()
+    leftWidget:SetAnchor(TOPLEFT, container, TOPLEFT)
+    rightWidget:SetAnchor(TOPLEFT, leftWidget, TOPRIGHT, 5, 0)
+    leftWidget:SetWidth(leftWidget:GetWidth() - 2.5)
+    rightWidget:SetWidth(rightWidget:GetWidth() - 2.5)
+    leftWidget:SetParent(container)
+    rightWidget:SetParent(container)
+
+    container.data = { type = "container" }
+    container.panel = panel
+    return container
+end
+
 local function CreateOptionControls(parent, options)
     if not parent or type(options) ~= "table" then
         return
@@ -289,6 +314,7 @@ local function CreateOptionControls(parent, options)
     parent._ezoCreatedControls = parent._ezoCreatedControls or {}
 
     local lastControl
+    local previousWasHalf = false
     for index = 1, #options do
         local widgetData = options[index]
         if type(widgetData) == "table" then
@@ -312,12 +338,19 @@ local function CreateOptionControls(parent, options)
 
             if widget then
                 parent._ezoCreatedControls[#parent._ezoCreatedControls + 1] = widget
+                local isHalf = widgetData.width == "half"
                 if not lastControl then
                     widget:SetAnchor(TOPLEFT)
                     lastControl = widget
+                    previousWasHalf = isHalf
+                elseif previousWasHalf and isHalf then
+                    lastControl = PairHalfWidthControls(parent, lastControl, widget)
+                    parent._ezoCreatedControls[#parent._ezoCreatedControls + 1] = lastControl
+                    previousWasHalf = false
                 else
                     widget:SetAnchor(TOPLEFT, lastControl, BOTTOMLEFT, 0, 15)
                     lastControl = widget
+                    previousWasHalf = isHalf
                 end
 
                 if widgetData.type == "submenu" and type(widgetData.controls) == "table" then
