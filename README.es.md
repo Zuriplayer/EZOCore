@@ -11,7 +11,7 @@ EZOCore está actualmente en **beta pública** dentro de una fase de vista previ
 - Expone una pequeña API local de registro/servicio/callbacks que funciona por completo dentro de un único cliente de ESO.
 - Es propietario del menú central `Settings > EZO` para la configuración de los addons de la familia EZO, con cabeceras informativas estándar de EZO.
 - Proporciona un modo de idioma común para la familia EZO: automático, inglés, español o "dejar que cada addon elija"; los addons independientes conservan su fallback propio cuando EZOCore no está instalado o el modo central permite opciones locales.
-- Todavía no hay sincronización de grupo, no se usa LibGroupBroadcast y no hay comunicación entre jugadores.
+- Todavía no hay sincronización de grupo activa ni comunicación entre jugadores. EZOCore puede detectar LibGroupBroadcast y exponer un servicio `family.groupPresence` desactivado, pero el envío queda bloqueado hasta reservar IDs oficiales de protocolo y cerrar el formato compacto.
 - No hay automatización remota disparada desde dentro del juego; los GitHub Actions de este repositorio son workflows manuales, disparados por el desarrollador, para empaquetar y publicar el estado en Discord.
 - Beta pública significa que el repositorio está visible para revisión/pruebas, pero el conjunto implementado sigue limitado intencionadamente a servicios locales.
 
@@ -59,6 +59,7 @@ Los ejemplos de integración para consumidores viven en [docs/consumer-integrati
 
 - `family.settings` API v1: registro central en `Settings > EZO`, navegación y controles de carga de addons instalados.
 - `family.presence` API v1: fachada local de presencia sobre addons EZO registrados, versiones y capacidades.
+- `family.groupPresence` API v1: fachada de presencia remota entre peers, actualmente desactivada hasta reservar IDs de LibGroupBroadcast y finalizar el protocolo compacto.
 - `family.language` API v1: preferencia local de idioma compartida para addons de la familia EZO.
 - registro local de addons/capacidades: descubrimiento solo local para consumidores como EZOTools.
 
@@ -76,7 +77,7 @@ Los ejemplos de integración para consumidores viven en [docs/consumer-integrati
 
 ## Hoja de ruta (todavía no implementado)
 
-Fases futuras podrían añadir presencia y mensajería entre jugadores mediante LibGroupBroadcast. Ese trabajo no ha comenzado y nada en este repositorio lo implementa todavía; este README se actualizará cuando así sea.
+Fases futuras podrán activar presencia entre jugadores mediante LibGroupBroadcast después de reservar IDs oficiales. La build actual no envía datos de peers.
 
 ## Soporte
 

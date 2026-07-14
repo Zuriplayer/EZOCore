@@ -83,6 +83,23 @@ end
 `GetLocalAddons()` devuelve solo el cliente actual. No implica nada sobre los
 miembros del grupo y no envia trafico por LibGroupBroadcast.
 
+## Consultar Estado De Presencia De Grupo
+
+El servicio `family.groupPresence` existe antes de activar trafico remoto. Sirve
+para que los consumidores comprueben si el transporte esta disponible y consulten
+estado de peers cuando el protocolo se active:
+
+```lua
+local groupPresence = EZOCore and EZOCore:GetService("family.groupPresence", 1)
+local status = groupPresence and groupPresence:GetStatus()
+if status and status.active then
+    local state = groupPresence:GetPeerCompatibility("group1", "ezotools", "group.activities", 1)
+end
+```
+
+Las builds actuales devuelven `protocolDefinitionPending` y no envian datos. No
+se deben mostrar avisos no solicitados al jugador por ese estado.
+
 ## Registrar Un Servicio
 
 Los servicios son tablas locales explicitas. EZOCore no ejecuta funciones por
@@ -168,7 +185,7 @@ Usa `UnregisterCallback(eventName, callback)` al retirar listeners temporales.
 
 EZOCore actualmente no implementa:
 
-- transporte LibGroupBroadcast;
+- transmision activa de presencia de grupo;
 - presencia entre jugadores;
 - registro de peers/miembros;
 - sincronizacion de estado de reset;

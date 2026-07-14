@@ -7,6 +7,7 @@ All notable changes to EZOCore are documented in this file.
 ### Added
 
 - Local `family.presence` service facade for registered EZO addons, versions and capabilities.
+- Disabled `family.groupPresence` service facade with LibGroupBroadcast readiness/status checks and an ephemeral remote peer registry for the next protocol phase.
 
 ## [0.1.2] - 2026-07-14
 

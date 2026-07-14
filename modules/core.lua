@@ -27,6 +27,10 @@ local function OnAddOnLoaded(_, addonName)
         },
     })
 
+    if EZOCore.GroupPresence and type(EZOCore.GroupPresence.Initialize) == "function" then
+        EZOCore.GroupPresence.Initialize()
+    end
+
     if EZOCore.InitializeSettings then
         EZOCore.InitializeSettings()
     end

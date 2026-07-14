@@ -83,6 +83,23 @@ end
 `GetLocalAddons()` returns the current client only. It does not imply anything
 about group members and does not send LibGroupBroadcast traffic.
 
+## Query Group Presence Readiness
+
+The `family.groupPresence` service is present before remote traffic is enabled.
+It lets consumers check whether the transport is available and query remote peer
+state once the protocol is activated:
+
+```lua
+local groupPresence = EZOCore and EZOCore:GetService("family.groupPresence", 1)
+local status = groupPresence and groupPresence:GetStatus()
+if status and status.active then
+    local state = groupPresence:GetPeerCompatibility("group1", "ezotools", "group.activities", 1)
+end
+```
+
+Current builds report `protocolDefinitionPending` and do not send data. Do not
+show unsolicited warnings for that state.
+
 ## Register A Service
 
 Services are explicit local tables. EZOCore does not execute functions by name.
@@ -167,7 +184,7 @@ listeners.
 
 Current EZOCore does not implement:
 
-- LibGroupBroadcast transport.
+- active group-presence transmission;
 - cross-player presence;
 - peer/member registry;
 - reset-state synchronization;

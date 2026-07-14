@@ -5,12 +5,13 @@
 ## AddOnVersion: 102
 ## APIVersion: 101049 101050
 ## SavedVariables: EZOCoreSavedVariables
-## OptionalDependsOn: LibDebugLogger DebugLogViewer LibAddonMenu-2.0
+## OptionalDependsOn: LibDebugLogger DebugLogViewer LibAddonMenu-2.0 LibGroupBroadcast
 
 EZOCore.lua
 modules/debug.lua
 modules/registry.lua
 modules/presence.lua
+modules/group_presence.lua
 modules/callbacks.lua
 modules/language.lua
 modules/settings.lua
