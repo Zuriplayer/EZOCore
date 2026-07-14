@@ -10,7 +10,7 @@ EZOCore está actualmente en **beta pública** dentro de una fase de vista previ
 
 - Expone una pequeña API local de registro/servicio/callbacks que funciona por completo dentro de un único cliente de ESO.
 - Es propietario del menú central `Settings > EZO` para la configuración de los addons de la familia EZO, con cabeceras informativas estándar de EZO.
-- Proporciona una preferencia de idioma común para la familia EZO a los addons que decidan heredarla, mientras los addons independientes conservan su fallback propio.
+- Proporciona un modo de idioma común para la familia EZO: automático, inglés, español o "dejar que cada addon elija"; los addons independientes conservan su fallback propio cuando EZOCore no está instalado o el modo central permite opciones locales.
 - Todavía no hay sincronización de grupo, no se usa LibGroupBroadcast y no hay comunicación entre jugadores.
 - No hay automatización remota disparada desde dentro del juego; los GitHub Actions de este repositorio son workflows manuales, disparados por el desarrollador, para empaquetar y publicar el estado en Discord.
 - Beta pública significa que el repositorio está visible para revisión/pruebas, pero el conjunto implementado sigue limitado intencionadamente a servicios locales.
@@ -21,11 +21,11 @@ No demasiado por sí mismo. EZOCore está pensado como una dependencia opcional 
 
 ## Panel de ajustes
 
-EZOCore es propietario del hub central `Settings > EZO`. Sus secciones usan el icono informativo morado de la familia EZO en las cabeceras: la ayuda general de sección queda en el tooltip de la cabecera y la ayuda específica de cada campo permanece en el tooltip del propio control. Los mensajes dinámicos operativos, como la falta de API del gestor de addons o el estado de recarga necesaria tras activar/desactivar addons EZO instalados, siguen visibles en el panel.
+EZOCore es propietario del hub central `Settings > EZO`. Su índice lateral combina navegación y selectores de activación: EZOCore permanece marcado y bloqueado, mientras los demás addons EZO instalados se pueden activar o desactivar y aplicar mediante el botón común `Recargar UI`. Los addons se agrupan por su fase declarada, desde trabajos estables y mantenidos hasta versiones beta y en desarrollo; los estados archivado y sin clasificar permanecen explícitos. Cada grupo usa el icono informativo morado de EZO y mantiene su explicación en el tooltip de la cabecera. Los addons desactivados permanecen en la lista, pero no pueden mostrar sus ajustes hasta activarlos y recargar la interfaz. La ayuda específica de cada campo permanece en el tooltip de su propio control.
 
 ## Preferencia de idioma
 
-EZOCore guarda una preferencia de idioma de cuenta para la familia EZO: automático, inglés o español. Los addons integrados con EZOCore pueden heredar esa preferencia; los addons instalados sin EZOCore deben seguir exponiendo su propio fallback local de idioma.
+EZOCore guarda un modo de idioma de cuenta para la familia EZO: automático, inglés, español o "dejar que cada addon elija". Automático, inglés y español desactivan los selectores de idioma de los addons integrados y aplican la elección central. "Dejar que cada addon elija" vuelve a habilitar el selector local de cada addon. Los addons instalados sin EZOCore deben seguir exponiendo su propio fallback local de idioma.
 
 ## API (fase local)
 
@@ -46,6 +46,7 @@ EZOCore guarda una preferencia de idioma de cuenta para la familia EZO: automát
 - `EZOCore:GetClientLanguage()`
 - `EZOCore:SetLanguage(language)`
 - `EZOCore:IsSupportedLanguage(language)`
+- `EZOCore:IsLanguageGloballyManaged()`
 - `EZOCore:RegisterCallback(eventName, callback)`
 - `EZOCore:UnregisterCallback(eventName, callback)`
 - `EZOCore:FireCallback(eventName, ...)`
@@ -56,7 +57,7 @@ Los addons deben registrarse con IDs EZO estables en minúsculas, versión visib
 
 Los ejemplos de integración para consumidores viven en [docs/consumer-integration.es.md](docs/consumer-integration.es.md). Los servicios implementados ahora son:
 
-- `family.settings` API v1: registro central en `Settings > EZO` y vista de estado de addons instalados.
+- `family.settings` API v1: registro central en `Settings > EZO`, navegación y controles de carga de addons instalados.
 - `family.language` API v1: preferencia local de idioma compartida para addons de la familia EZO.
 - registro local de addons/capacidades: descubrimiento solo local para consumidores como EZOTools.
 

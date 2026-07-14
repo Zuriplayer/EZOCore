@@ -12,20 +12,24 @@ local SAVED_VARIABLES_NAME = "EZOCoreSavedVariables"
 local SAVED_VARIABLES_VERSION = 1
 
 local DEFAULTS = {
-    language = "auto",
+    language = "addon",
 }
 
-local SUPPORTED_LANGUAGES = {
+local SUPPORTED_LANGUAGE_MODES = {
     auto = true,
     en = true,
     es = true,
+    addon = true,
 }
 
 local sv
 
-local function NormalizeLanguage(language)
-    local value = string.lower(tostring(language or "auto"))
-    if SUPPORTED_LANGUAGES[value] then
+local function NormalizeLanguageMode(language)
+    local value = string.lower(tostring(language or DEFAULTS.language))
+    if value == "inherit" or value == "peraddon" or value == "per_addon" then
+        value = "addon"
+    end
+    if SUPPORTED_LANGUAGE_MODES[value] then
         return value
     end
     return nil
@@ -55,7 +59,7 @@ local function EnsureSavedVariables()
         EZOCore:Warn("Language preference is session-only because ZO_SavedVars is unavailable")
     end
 
-    sv.language = NormalizeLanguage(sv.language) or DEFAULTS.language
+    sv.language = NormalizeLanguageMode(sv.language) or DEFAULTS.language
     return sv
 end
 
@@ -86,9 +90,13 @@ function LANGUAGE.IsSupportedLanguage(first, second)
     return EZOCore:IsSupportedLanguage(language)
 end
 
+function LANGUAGE.IsLanguageGloballyManaged()
+    return EZOCore:IsLanguageGloballyManaged()
+end
+
 function EZOCore.IsSupportedLanguage(first, second)
     local language = second ~= nil and second or first
-    return NormalizeLanguage(language) ~= nil
+    return NormalizeLanguageMode(language) ~= nil
 end
 
 function EZOCore.GetClientLanguage()
@@ -96,11 +104,19 @@ function EZOCore.GetClientLanguage()
 end
 
 function EZOCore.GetConfiguredLanguage()
-    return (NormalizeLanguage((sv and sv.language) or DEFAULTS.language) or DEFAULTS.language)
+    return (NormalizeLanguageMode((sv and sv.language) or DEFAULTS.language) or DEFAULTS.language)
+end
+
+function EZOCore:IsLanguageGloballyManaged()
+    local configured = self:GetConfiguredLanguage()
+    return configured == "auto" or configured == "en" or configured == "es"
 end
 
 function EZOCore:GetLanguage()
     local configured = self:GetConfiguredLanguage()
+    if configured == "addon" then
+        return self:GetClientLanguage()
+    end
     if configured == "auto" then
         return self:GetClientLanguage()
     end
@@ -108,7 +124,7 @@ function EZOCore:GetLanguage()
 end
 
 function EZOCore:SetLanguage(language)
-    local normalized = NormalizeLanguage(language)
+    local normalized = NormalizeLanguageMode(language)
     if not normalized then
         self:Warn("SetLanguage: unsupported language '%s'", tostring(language))
         return false
@@ -123,8 +139,9 @@ function EZOCore:SetLanguage(language)
 
     store.language = normalized
     local effective = self:GetLanguage()
-    self:FireCallback(self.EVENT_LANGUAGE_CHANGED, effective, normalized, previousEffective)
-    self:FireCallback("EZOCore:LanguageChanged", effective, normalized, previousEffective)
+    local globallyManaged = self:IsLanguageGloballyManaged()
+    self:FireCallback(self.EVENT_LANGUAGE_CHANGED, effective, normalized, previousEffective, globallyManaged)
+    self:FireCallback("EZOCore:LanguageChanged", effective, normalized, previousEffective, globallyManaged)
     return true
 end
 

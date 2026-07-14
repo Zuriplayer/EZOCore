@@ -104,6 +104,7 @@ local panelData = {
     displayName = "EZOTools",
     author = "@Zuriplayer",
     version = EZOTools.ADDON_VERSION,
+    ezoStage = "beta",
     registerForRefresh = true,
 }
 
@@ -122,6 +123,12 @@ inside its own addon view. Selecting an addon therefore stays inside the EZO
 panel and does not create a duplicate entry in the standard addon settings
 list. The standalone LAM panel is only the compatibility fallback when
 EZOCore is unavailable.
+
+`panelData.ezoStage` must match `addon.stage` in the repository's
+`ezo-addon.json`. Supported runtime values are `development`, `beta`, `stable`,
+`maintenance`, and `archived`. EZOCore owns validation, display order, group
+labels, and help text. Missing or invalid values are placed in `Unclassified`;
+EZOCore never infers maturity from an addon name or version.
 
 ## Local Callbacks
 

@@ -10,7 +10,7 @@ EZOCore is currently a **public beta** in a local-only service preview phase:
 
 - It exposes a small local registry/service/callback API that runs entirely inside a single ESO client.
 - It owns a central `Settings > EZO` menu for EZO-family addon settings, using EZO-standard informational section headers.
-- It provides a shared EZO-family language preference for addons that choose to inherit it, while standalone addons keep their own fallback.
+- It provides a shared EZO-family language mode: automatic, English, Spanish, or "let each addon choose"; standalone addons keep their own fallback when EZOCore is not installed or the central mode allows local choices.
 - There is no group sync, no LibGroupBroadcast usage, and no communication between players yet.
 - There is no remote automation triggered from inside the game; the GitHub Actions in this repo are manual, developer-triggered workflows for packaging and Discord status updates.
 - Public beta means the repository is visible for review/testing, but the implemented feature set is still intentionally limited to local services.
@@ -21,11 +21,11 @@ Not much on its own. EZOCore is meant to be an optional shared dependency for ot
 
 ## Settings panel
 
-EZOCore owns the central `Settings > EZO` hub. Its own sections use the EZO-family purple information icon in section headers: general section help is attached to the header tooltip, while field-specific help remains on each setting control. Dynamic operational messages, such as unavailable addon-manager APIs or reload-required state after toggling installed EZO addons, remain visible in the panel.
+EZOCore owns the central `Settings > EZO` hub. Its left index combines addon navigation with enable/disable selectors: EZOCore remains checked and locked, while other installed EZO addons can be toggled and applied with the shared `Reload UI` button. Addons are grouped by their declared lifecycle stage, from stable and maintained work to beta and development builds; archived and unclassified states remain explicit. Each group uses the EZO purple information icon and keeps its explanation in the header tooltip. Disabled addons remain listed but cannot expose their settings until they are enabled and the UI reloads. Field-specific help remains on each setting control.
 
 ## Language preference
 
-EZOCore stores one account-wide EZO-family language preference: automatic, English or Spanish. Addons that integrate with EZOCore can inherit that preference; addons installed without EZOCore must still expose their own local language fallback.
+EZOCore stores one account-wide EZO-family language mode: automatic, English, Spanish, or "let each addon choose". Automatic, English and Spanish disable integrated addon language selectors and apply the central choice. "Let each addon choose" re-enables each addon's local selector. Addons installed without EZOCore must still expose their own local language fallback.
 
 ## API (local phase)
 
@@ -46,6 +46,7 @@ EZOCore stores one account-wide EZO-family language preference: automatic, Engli
 - `EZOCore:GetClientLanguage()`
 - `EZOCore:SetLanguage(language)`
 - `EZOCore:IsSupportedLanguage(language)`
+- `EZOCore:IsLanguageGloballyManaged()`
 - `EZOCore:RegisterCallback(eventName, callback)`
 - `EZOCore:UnregisterCallback(eventName, callback)`
 - `EZOCore:FireCallback(eventName, ...)`
@@ -56,7 +57,7 @@ Addons should register with stable lowercase EZO ids, visible version, numeric `
 
 Consumer integration examples live in [docs/consumer-integration.md](docs/consumer-integration.md). The current implemented services are:
 
-- `family.settings` API v1: central `Settings > EZO` registration and installed-addon status view.
+- `family.settings` API v1: central `Settings > EZO` registration, navigation and installed-addon load controls.
 - `family.language` API v1: shared local language preference for EZO-family addons.
 - local addon/capability registry: local-only discovery for consumers such as EZOTools.
 

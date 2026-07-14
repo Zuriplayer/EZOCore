@@ -4,6 +4,21 @@ All notable changes to EZOCore are documented in this file.
 
 ## Unreleased
 
+## [0.1.2] - 2026-07-14
+
+### Added
+
+- Lifecycle groups in `Settings > EZO`, ordered from mature addons to experimental work, with standard purple information tooltips and an explicit unclassified fallback.
+- `panelData.ezoStage` support for consumer settings registration.
+- Enable/disable selectors beside installed EZO addons in the native `Settings > EZO` navigation list.
+- A shared `Reload UI` button for applying addon load changes without duplicating controls in the EZOCore panel.
+- A fourth language mode, "let each addon choose", plus `EZOCore:IsLanguageGloballyManaged()` so integrated addons can disable or re-enable their local language selectors consistently.
+
+### Fixed
+
+- Resolves ESO's current `GetAddOnManager()` API before legacy manager globals, restoring installed-addon discovery and load controls.
+- Keeps EZOCore permanently enabled and prevents installed but unloaded addons from opening unavailable settings.
+
 ## [0.1.1] - 2026-07-14
 
 ### Added

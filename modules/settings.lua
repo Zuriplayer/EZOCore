@@ -17,16 +17,28 @@ local MANAGER_PANEL_ID = "__ezo_installed_addons"
 local HUB_PANEL_ID = "EZOCore_EZO_Panel"
 local WINDOW_NAME = "EZOCoreSettingsWindow"
 local INFO_HEADER_TEXTURE = "EsoUI/Art/Miscellaneous/help_icon.dds"
+local UNCLASSIFIED_STAGE = "unclassified"
+local LIFECYCLE_STAGES = {
+    stable = { order = 1, nameKey = "stageStable", tooltipKey = "stageStableTooltip" },
+    maintenance = { order = 2, nameKey = "stageMaintenance", tooltipKey = "stageMaintenanceTooltip" },
+    archived = { order = 3, nameKey = "stageArchived", tooltipKey = "stageArchivedTooltip" },
+    beta = { order = 4, nameKey = "stageBeta", tooltipKey = "stageBetaTooltip" },
+    development = { order = 5, nameKey = "stageDevelopment", tooltipKey = "stageDevelopmentTooltip" },
+    unclassified = { order = 6, nameKey = "stageUnclassified", tooltipKey = "stageUnclassifiedTooltip" },
+}
 
 local panelsById = {}
 local panelOrder = {}
 local hubOptions = {}
+local pendingAddonStates = {}
+local originalAddonStates = {}
 local ui
 local panelId
 local selectedPanelId
 local createdSettingsPanel = false
 local createdLamHubPanel = false
 local controlCounter = 0
+local RebuildHubOptions
 
 SETTINGS.reloadRequired = false
 
@@ -36,14 +48,15 @@ local STRINGS = {
         installedAddonsTooltip = "Enable or disable installed EZO family addons. Changes require reload.",
         addonSettingsTooltip = "Open settings registered by installed EZO addons through EZOCore.",
         languageHeader = "Language",
-        languageHeaderTooltip = "Choose the shared language preference used by EZO addons "
-            .. "that inherit EZOCore settings.",
+        languageHeaderTooltip = "Choose whether EZOCore manages one language for the EZO family "
+            .. "or each addon keeps its own selector.",
         language = "EZO family language",
-        languageTooltip = "Automatic follows the ESO client language. Individual addons can still keep "
-            .. "their own fallback when EZOCore is not installed.",
+        languageTooltip = "Automatic, English and Spanish lock addon language selectors to the "
+            .. "central preference. Let each addon choose re-enables local addon selectors.",
         languageAuto = "Automatic (ESO client)",
         languageEnglish = "English",
         languageSpanish = "Spanish",
+        languageAddon = "Let each addon choose",
         noOptions = "This addon has not registered settings yet.",
         noLam = "LibAddonMenu-2.0 is not available. Option controls cannot be rendered.",
         unsupportedControl = "Unsupported setting control: %s",
@@ -59,6 +72,19 @@ local STRINGS = {
         hubHeader = "EZO settings hub",
         hubHeaderTooltip = "Central access point for EZO family addon settings.",
         addonSettings = "Addon settings",
+        stageStable = "Stable",
+        stageStableTooltip = "Mature addons intended for regular use.",
+        stageMaintenance = "Maintenance",
+        stageMaintenanceTooltip = "Mature addons receiving fixes or compatibility updates, "
+            .. "with limited active development.",
+        stageArchived = "Archived",
+        stageArchivedTooltip = "Installed addons retained for access but no longer under active maintenance.",
+        stageBeta = "Beta",
+        stageBetaTooltip = "Addons ready for broader testing; behavior or settings may still change.",
+        stageDevelopment = "Development",
+        stageDevelopmentTooltip = "Experimental addons under active construction and intended for controlled testing.",
+        stageUnclassified = "Unclassified",
+        stageUnclassifiedTooltip = "Installed addons without a valid EZO lifecycle stage. No maturity is inferred.",
     },
     es = {
         installedAddons = "Addons EZO instalados",
@@ -66,14 +92,15 @@ local STRINGS = {
             .. "Los cambios requieren recarga.",
         addonSettingsTooltip = "Abre la configuración registrada por addons EZO instalados mediante EZOCore.",
         languageHeader = "Idioma",
-        languageHeaderTooltip = "Elige la preferencia de idioma común usada por addons EZO "
-            .. "que heredan los ajustes de EZOCore.",
+        languageHeaderTooltip = "Elige si EZOCore gestiona un idioma para la familia EZO "
+            .. "o cada addon mantiene su propio selector.",
         language = "Idioma de la familia EZO",
-        languageTooltip = "Automático sigue el idioma del cliente ESO. Los addons individuales conservan "
-            .. "su fallback propio cuando EZOCore no está instalado.",
+        languageTooltip = "Automático, inglés y español bloquean los selectores de idioma de los addons "
+            .. "a la preferencia central. Dejar que cada addon elija vuelve a habilitarlos.",
         languageAuto = "Automático (cliente ESO)",
         languageEnglish = "Inglés",
         languageSpanish = "Español",
+        languageAddon = "Dejar que cada addon elija",
         noOptions = "Este addon todavía no ha registrado opciones.",
         noLam = "LibAddonMenu-2.0 no está disponible. No se pueden dibujar controles de opciones.",
         unsupportedControl = "Control de ajuste no soportado: %s",
@@ -89,6 +116,20 @@ local STRINGS = {
         hubHeader = "Hub de configuración EZO",
         hubHeaderTooltip = "Acceso central a la configuración de los addons de la familia EZO.",
         addonSettings = "Configuración de addons",
+        stageStable = "Estables",
+        stageStableTooltip = "Addons maduros destinados al uso habitual.",
+        stageMaintenance = "Mantenimiento",
+        stageMaintenanceTooltip = "Addons maduros que reciben correcciones o compatibilidad, "
+            .. "con desarrollo activo limitado.",
+        stageArchived = "Archivados",
+        stageArchivedTooltip = "Addons instalados que se conservan accesibles, pero ya no tienen mantenimiento activo.",
+        stageBeta = "Beta",
+        stageBetaTooltip = "Addons preparados para pruebas amplias; su comportamiento o ajustes "
+            .. "todavía pueden cambiar.",
+        stageDevelopment = "Desarrollo",
+        stageDevelopmentTooltip = "Addons experimentales en construcción activa y destinados a pruebas controladas.",
+        stageUnclassified = "Sin clasificar",
+        stageUnclassifiedTooltip = "Addons instalados sin una fase EZO válida. No se presupone su nivel de madurez.",
     },
 }
 
@@ -143,6 +184,35 @@ local function StripMarkup(value)
     return text
 end
 
+local function NormalizeLifecycleStage(value)
+    if not IsNonEmptyString(value) then
+        return nil
+    end
+
+    local stage = string.lower(value)
+    if stage ~= UNCLASSIFIED_STAGE and LIFECYCLE_STAGES[stage] then
+        return stage
+    end
+    return nil
+end
+
+local function GetLifecycleStage(entry)
+    return entry and entry.stage or UNCLASSIFIED_STAGE
+end
+
+local function GetLifecycleDefinition(stage)
+    return LIFECYCLE_STAGES[stage] or LIFECYCLE_STAGES[UNCLASSIFIED_STAGE]
+end
+
+local function CompareLifecycleEntries(leftStage, leftName, rightStage, rightName)
+    local leftDefinition = GetLifecycleDefinition(leftStage)
+    local rightDefinition = GetLifecycleDefinition(rightStage)
+    if leftDefinition.order ~= rightDefinition.order then
+        return leftDefinition.order < rightDefinition.order
+    end
+    return leftName < rightName
+end
+
 local function CreateInfoHeader(name, tooltip)
     return {
         type = "header",
@@ -163,7 +233,11 @@ local function SortPanels()
         local right = panelsById[rightId]
         local leftName = left and left.sortName or leftId
         local rightName = right and right.sortName or rightId
-        return leftName < rightName
+        return CompareLifecycleEntries(
+            GetLifecycleStage(left),
+            leftName,
+            GetLifecycleStage(right),
+            rightName)
     end)
 end
 
@@ -174,7 +248,13 @@ local function GetLam()
     return nil
 end
 
-local function GetAddOnManager()
+local function ResolveAddOnManager()
+    if type(GetAddOnManager) == "function" then
+        local ok, manager = pcall(GetAddOnManager)
+        if ok and manager then
+            return manager
+        end
+    end
     if type(AddOnManager) == "table" then
         return AddOnManager
     end
@@ -240,7 +320,7 @@ local function IsEZOAddon(record)
 end
 
 local function GetInstalledEZOAddons()
-    local manager = GetAddOnManager()
+    local manager = ResolveAddOnManager()
     local count = GetAddOnCount(manager)
     local addons = {}
 
@@ -262,15 +342,57 @@ local function GetInstalledEZOAddons()
     return addons
 end
 
+local function GetAddOnRecordId(record)
+    if not record then
+        return nil
+    end
+
+    return NormalizeId(StripMarkup(record.name))
+        or NormalizeId(StripMarkup(record.title))
+end
+
+local function IsAddOnEnabled(record)
+    local addonId = GetAddOnRecordId(record)
+    if addonId and pendingAddonStates[addonId] ~= nil then
+        return pendingAddonStates[addonId]
+    end
+    return record and record.enabled == true
+end
+
 local function CanSetAddOnEnabled()
-    local manager = GetAddOnManager()
+    local manager = ResolveAddOnManager()
     return manager and type(manager.SetAddOnEnabled) == "function"
 end
 
+local function RefreshReloadButton()
+    if not ui or not ui.reloadButton then
+        return
+    end
+
+    ui.reloadButton:SetText(T("reloadUi"))
+    ui.reloadButton:SetEnabled(SETTINGS.reloadRequired == true and type(ReloadUI) == "function")
+end
+
+local function RefreshReloadState()
+    SETTINGS.reloadRequired = false
+    for addonId, enabled in pairs(pendingAddonStates) do
+        if originalAddonStates[addonId] ~= nil and originalAddonStates[addonId] ~= enabled then
+            SETTINGS.reloadRequired = true
+            break
+        end
+    end
+    RefreshReloadButton()
+end
+
 local function SetAddOnEnabled(record, enabled)
-    local manager = GetAddOnManager()
+    local manager = ResolveAddOnManager()
     if not record or not manager or type(manager.SetAddOnEnabled) ~= "function" then
         return false
+    end
+
+    local addonId = GetAddOnRecordId(record)
+    if addonId and originalAddonStates[addonId] == nil then
+        originalAddonStates[addonId] = record.enabled == true
     end
 
     local ok = pcall(function()
@@ -278,7 +400,14 @@ local function SetAddOnEnabled(record, enabled)
     end)
     if ok then
         record.enabled = enabled == true
-        SETTINGS.reloadRequired = true
+        if addonId then
+            pendingAddonStates[addonId] = record.enabled
+            RefreshReloadState()
+        else
+            SETTINGS.reloadRequired = true
+            RefreshReloadButton()
+        end
+        RebuildHubOptions()
         SETTINGS:RefreshCurrentPanel()
         return true
     end
@@ -426,8 +555,6 @@ local function ResolveOptions(entry)
     return nil
 end
 
-local RebuildHubOptions
-
 local function BuildLanguageOptions()
     return {
         CreateInfoHeader(T("languageHeader"), T("languageHeaderTooltip")),
@@ -439,11 +566,13 @@ local function BuildLanguageOptions()
                 T("languageAuto"),
                 T("languageEnglish"),
                 T("languageSpanish"),
+                T("languageAddon"),
             },
             choicesValues = {
                 "auto",
                 "en",
                 "es",
+                "addon",
             },
             getFunc = function()
                 if EZOCore and type(EZOCore.GetConfiguredLanguage) == "function" then
@@ -463,7 +592,7 @@ local function BuildLanguageOptions()
 end
 
 local function BuildInstalledAddonsOptions()
-    local manager = GetAddOnManager()
+    local manager = ResolveAddOnManager()
     local count = GetAddOnCount(manager)
     local canSet = CanSetAddOnEnabled()
     local options = {
@@ -479,10 +608,28 @@ local function BuildInstalledAddonsOptions()
     end
 
     local addons = GetInstalledEZOAddons()
+    table.sort(addons, function(left, right)
+        local leftId = GetAddOnRecordId(left)
+        local rightId = GetAddOnRecordId(right)
+        return CompareLifecycleEntries(
+            GetLifecycleStage(leftId and panelsById[leftId]),
+            string.lower(StripMarkup(left.title)),
+            GetLifecycleStage(rightId and panelsById[rightId]),
+            string.lower(StripMarkup(right.title)))
+    end)
+
+    local currentStage
     for _, record in ipairs(addons) do
         local title = StripMarkup(record.title)
         local folder = StripMarkup(record.name)
         local state = tostring(record.state or "")
+        local addonId = GetAddOnRecordId(record)
+        local stage = GetLifecycleStage(addonId and panelsById[addonId])
+        if stage ~= currentStage then
+            local definition = GetLifecycleDefinition(stage)
+            options[#options + 1] = CreateInfoHeader(T(definition.nameKey), T(definition.tooltipKey))
+            currentStage = stage
+        end
         local detail = T("folder", folder)
         if state ~= "" then
             detail = detail .. "\n" .. T("state", state)
@@ -493,7 +640,7 @@ local function BuildInstalledAddonsOptions()
             name = title,
             tooltip = detail,
             getFunc = function()
-                return record.enabled == true
+                return IsAddOnEnabled(record)
             end,
             setFunc = function(value)
                 SetAddOnEnabled(record, value == true)
@@ -531,12 +678,7 @@ local function BuildInstalledAddonsOptions()
 end
 
 local function BuildCoreOptions()
-    local options = BuildLanguageOptions()
-    local installedOptions = BuildInstalledAddonsOptions()
-    for index = 1, #installedOptions do
-        options[#options + 1] = installedOptions[index]
-    end
-    return options
+    return BuildLanguageOptions()
 end
 
 local function BuildManagerEntry()
@@ -557,7 +699,7 @@ local function BuildManagerEntry()
     }
 end
 
-function RebuildHubOptions()
+RebuildHubOptions = function()
     for key in pairs(hubOptions) do
         hubOptions[key] = nil
     end
@@ -572,11 +714,20 @@ function RebuildHubOptions()
         CreateInfoHeader(T("addonSettings"), T("addonSettingsTooltip")),
     }
     local hasAddonControls = false
+    local currentStage
     SortPanels()
     for _, addonId in ipairs(panelOrder) do
         local entry = panelsById[addonId]
         if entry then
             hasAddonControls = true
+            local stage = GetLifecycleStage(entry)
+            if stage ~= currentStage then
+                local definition = GetLifecycleDefinition(stage)
+                addonControls[#addonControls + 1] = CreateInfoHeader(
+                    T(definition.nameKey),
+                    T(definition.tooltipKey))
+                currentStage = stage
+            end
             local panelData = entry.panelData or {}
             local displayName = StripMarkup(panelData.displayName or panelData.name or entry.addonId)
             local controls = ResolveOptions(entry)
@@ -660,6 +811,110 @@ local function SelectFirstPanel()
     selectedPanelId = MANAGER_PANEL_ID
 end
 
+local function GetMenuDisplayName(rowData)
+    local entry = rowData and rowData.entry
+    local panelData = entry and entry.panelData or nil
+    if panelData then
+        return StripMarkup(panelData.displayName or panelData.name or entry.addonId)
+    end
+    if rowData and rowData.record then
+        return StripMarkup(rowData.record.title or rowData.record.name or rowData.addonId)
+    end
+    return tostring(rowData and rowData.addonId or "")
+end
+
+local function BuildMenuRows()
+    local rows = {}
+    local rowsById = {}
+
+    for _, record in ipairs(GetInstalledEZOAddons()) do
+        local addonId = GetAddOnRecordId(record)
+        if addonId and not rowsById[addonId] then
+            local rowData = {
+                addonId = addonId,
+                entry = panelsById[addonId],
+                record = record,
+                stage = GetLifecycleStage(panelsById[addonId]),
+            }
+            rows[#rows + 1] = rowData
+            rowsById[addonId] = rowData
+        end
+    end
+
+    SortPanels()
+    for _, addonId in ipairs(panelOrder) do
+        local rowData = rowsById[addonId]
+        if rowData then
+            rowData.entry = panelsById[addonId]
+            rowData.stage = GetLifecycleStage(rowData.entry)
+        else
+            rowData = {
+                addonId = addonId,
+                entry = panelsById[addonId],
+                stage = GetLifecycleStage(panelsById[addonId]),
+            }
+            rows[#rows + 1] = rowData
+            rowsById[addonId] = rowData
+        end
+    end
+
+    table.sort(rows, function(left, right)
+        return CompareLifecycleEntries(
+            left.stage or UNCLASSIFIED_STAGE,
+            string.lower(GetMenuDisplayName(left)),
+            right.stage or UNCLASSIFIED_STAGE,
+            string.lower(GetMenuDisplayName(right)))
+    end)
+
+    table.insert(rows, 1, {
+        addonId = MANAGER_PANEL_ID,
+        entry = BuildManagerEntry(),
+        isCore = true,
+    })
+    return rows
+end
+
+local function CreateMenuGroupHeader(stage)
+    local definition = GetLifecycleDefinition(stage)
+    controlCounter = controlCounter + 1
+    local label = CreateLabel(
+        ui.menuChild,
+        WINDOW_NAME .. "MenuGroup" .. controlCounter,
+        zo_strformat(
+            "<<1>> |cB040FF|t26:26:<<2>>:inheritcolor|t|r",
+            T(definition.nameKey),
+            INFO_HEADER_TEXTURE),
+        "ZoFontGameBold")
+    label:SetDimensions(270, 30)
+    label:SetColor(0.88, 0.84, 0.68, 1)
+    label:SetMouseEnabled(true)
+    label:SetHandler("OnMouseEnter", function(control)
+        if type(ZO_Tooltips_ShowTextTooltip) == "function" then
+            ZO_Tooltips_ShowTextTooltip(control, RIGHT, T(definition.tooltipKey))
+        end
+    end)
+    label:SetHandler("OnMouseExit", function()
+        if type(ZO_Tooltips_HideTextTooltip) == "function" then
+            ZO_Tooltips_HideTextTooltip()
+        end
+    end)
+    return label
+end
+
+local function SetMenuLabelColor(label, rowData, hovered)
+    if selectedPanelId == rowData.addonId then
+        label:SetColor(1, 1, 1, 1)
+    elseif hovered and rowData.entry then
+        label:SetColor(1, 0.84, 0.45, 1)
+    elseif rowData.record and not IsAddOnEnabled(rowData.record) then
+        label:SetColor(0.48, 0.48, 0.46, 1)
+    elseif not rowData.entry then
+        label:SetColor(0.62, 0.62, 0.58, 1)
+    else
+        label:SetColor(0.78, 0.78, 0.72, 1)
+    end
+end
+
 local function RebuildMenuList()
     if not ui then
         return
@@ -667,49 +922,91 @@ local function RebuildMenuList()
 
     ClearControls(ui.menuRows)
 
-    local rows = {
-        BuildManagerEntry(),
-    }
-    SortPanels()
-    for _, addonId in ipairs(panelOrder) do
-        rows[#rows + 1] = panelsById[addonId]
-    end
+    local rows = BuildMenuRows()
+    local canSet = CanSetAddOnEnabled()
 
     local previous
-    for _, entry in ipairs(rows) do
-        controlCounter = controlCounter + 1
-        local row = CreateLabel(ui.menuChild, WINDOW_NAME .. "MenuRow" .. controlCounter,
-            StripMarkup(entry.panelData.displayName or entry.panelData.name or entry.addonId),
-            "ZoFontGame")
-        row:SetDimensions(260, 28)
-        row:SetMouseEnabled(true)
-        row:SetHandler("OnMouseUp", function()
-            SETTINGS:OpenSettingsPanel(entry.addonId)
-        end)
-        row:SetHandler("OnMouseEnter", function(control)
-            control:SetColor(1, 0.84, 0.45, 1)
-        end)
-        row:SetHandler("OnMouseExit", function(control)
-            if selectedPanelId == entry.addonId then
-                control:SetColor(1, 1, 1, 1)
+    local previousIsHeader = false
+    local currentStage
+    for _, rowData in ipairs(rows) do
+        local currentRow = rowData
+        if not currentRow.isCore and currentRow.stage ~= currentStage then
+            local header = CreateMenuGroupHeader(currentRow.stage)
+            if previous then
+                header:SetAnchor(TOPLEFT, previous, BOTTOMLEFT, 0, 12)
             else
-                control:SetColor(0.78, 0.78, 0.72, 1)
+                header:SetAnchor(TOPLEFT, ui.menuChild, TOPLEFT, 0, 0)
             end
-        end)
-        if selectedPanelId == entry.addonId then
-            row:SetColor(1, 1, 1, 1)
-        else
-            row:SetColor(0.78, 0.78, 0.72, 1)
+            previous = header
+            previousIsHeader = true
+            currentStage = currentRow.stage
+            ui.menuRows[#ui.menuRows + 1] = header
         end
 
+        controlCounter = controlCounter + 1
+        local row = WINDOW_MANAGER:CreateControl(
+            WINDOW_NAME .. "MenuRow" .. controlCounter,
+            ui.menuChild,
+            CT_CONTROL)
+        row:SetDimensions(270, 28)
+
+        controlCounter = controlCounter + 1
+        local checkbox = WINDOW_MANAGER:CreateControlFromVirtual(
+            WINDOW_NAME .. "MenuCheckbox" .. controlCounter,
+            row,
+            "ZO_CheckButton")
+        checkbox:SetAnchor(LEFT, row, LEFT, 0, 0)
+
+        local checked = currentRow.isCore == true
+            or (currentRow.record and IsAddOnEnabled(currentRow.record))
+            or (currentRow.entry ~= nil and currentRow.record == nil)
+        ZO_CheckButton_SetCheckState(checkbox, checked == true)
+
+        local record = currentRow.record
+        if currentRow.isCore or not record or not canSet then
+            ZO_CheckButton_Disable(checkbox)
+        else
+            ZO_CheckButton_Enable(checkbox)
+            ZO_CheckButton_SetToggleFunction(checkbox, function(control, isChecked)
+                if not SetAddOnEnabled(record, isChecked == true) then
+                    ZO_CheckButton_SetCheckState(control, not isChecked)
+                end
+            end)
+        end
+
+        controlCounter = controlCounter + 1
+        local label = CreateLabel(
+            row,
+            WINDOW_NAME .. "MenuLabel" .. controlCounter,
+            GetMenuDisplayName(currentRow),
+            "ZoFontGame")
+        label:SetDimensions(230, 28)
+        label:SetAnchor(TOPLEFT, row, TOPLEFT, 34, 0)
+        label:SetMouseEnabled(currentRow.entry ~= nil)
+        if currentRow.entry then
+            label:SetHandler("OnMouseUp", function()
+                SETTINGS:OpenSettingsPanel(currentRow.addonId)
+            end)
+            label:SetHandler("OnMouseEnter", function(control)
+                SetMenuLabelColor(control, currentRow, true)
+            end)
+            label:SetHandler("OnMouseExit", function(control)
+                SetMenuLabelColor(control, currentRow, false)
+            end)
+        end
+        SetMenuLabelColor(label, currentRow, false)
+
         if previous then
-            row:SetAnchor(TOPLEFT, previous, BOTTOMLEFT, 0, 6)
+            row:SetAnchor(TOPLEFT, previous, BOTTOMLEFT, 0, previousIsHeader and 0 or 6)
         else
             row:SetAnchor(TOPLEFT, ui.menuChild, TOPLEFT, 0, 0)
         end
         previous = row
+        previousIsHeader = false
         ui.menuRows[#ui.menuRows + 1] = row
     end
+
+    RefreshReloadButton()
 end
 
 local function RenderSelectedPanel()
@@ -866,6 +1163,18 @@ local function CreateSettingsWindow()
     local menuChild = GetControl(menuContainer, "ScrollChild")
     menuChild:SetResizeToFitPadding(0, 20)
 
+    local reloadButton = WINDOW_MANAGER:CreateControlFromVirtual(
+        WINDOW_NAME .. "ReloadButton",
+        root,
+        "ZO_DefaultButton")
+    reloadButton:SetDimensions(220, 30)
+    reloadButton:SetAnchor(TOPLEFT, root, TOPLEFT, 65, 840)
+    reloadButton:SetHandler("OnClicked", function()
+        if SETTINGS.reloadRequired and type(ReloadUI) == "function" then
+            ReloadUI()
+        end
+    end)
+
     local optionContainer = WINDOW_MANAGER:CreateControl(
         WINDOW_NAME .. "OptionsHost",
         root,
@@ -881,10 +1190,12 @@ local function CreateSettingsWindow()
         menuChild = menuChild,
         optionContainer = optionContainer,
         optionChild = optionChild,
+        reloadButton = reloadButton,
         menuRows = {},
         panelHosts = {},
         background = { bgLeft, bgRight, underlayLeft, underlayRight, divider },
     }
+    RefreshReloadButton()
 
     if type(ZO_FadeSceneFragment) == "table" and type(ZO_FadeSceneFragment.New) == "function" then
         ui.fragment = ZO_FadeSceneFragment:New(root, true, 100)
@@ -995,6 +1306,14 @@ function SETTINGS.RegisterSettingsPanel(_, addonId, addonPanelId, panelData, opt
         return false
     end
 
+    local lifecycleStage = NormalizeLifecycleStage(panelData.ezoStage)
+    if panelData.ezoStage ~= nil and not lifecycleStage then
+        EZOCore:Warn(
+            "RegisterSettingsPanel: invalid panelData.ezoStage '%s' (addon '%s')",
+            tostring(panelData.ezoStage),
+            normalizedId)
+    end
+
     if not panelsById[normalizedId] then
         panelOrder[#panelOrder + 1] = normalizedId
     end
@@ -1005,6 +1324,7 @@ function SETTINGS.RegisterSettingsPanel(_, addonId, addonPanelId, panelData, opt
         panelData = panelData,
         options = options,
         lamPanel = lamPanel,
+        stage = lifecycleStage or UNCLASSIFIED_STAGE,
         sortName = string.lower(StripMarkup(panelData.displayName or panelData.name or normalizedId)),
     }
 
@@ -1027,6 +1347,7 @@ function SETTINGS.GetSettingsPanels()
             addonId = entry.addonId,
             panelId = entry.panelId,
             panelData = entry.panelData,
+            stage = entry.stage,
         }
     end
     return list
