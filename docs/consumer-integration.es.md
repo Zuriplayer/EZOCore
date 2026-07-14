@@ -100,6 +100,29 @@ end
 Las builds actuales devuelven `protocolDefinitionPending` y no envian datos. No
 se deben mostrar avisos no solicitados al jugador por ese estado.
 
+## Usar Diagnostico Comun
+
+El servicio `family.debug` centraliza el acceso opcional a LibDebugLogger sin
+convertir el diagnostico en una dependencia obligatoria:
+
+```lua
+local diagnostics = EZOCore and EZOCore:GetService("family.debug", 1)
+if diagnostics then
+    diagnostics:Debug("EZOTools", "Actividad seleccionada: %s", activityName)
+end
+```
+
+Los metodos disponibles son `Log(tag, level, message, ...)`, `Debug`, `Info`,
+`Warn`, `Error`, `IsAvailable`, `IsViewerAvailable` y `ShowViewer`. Los metodos
+de log devuelven `false` sin formatear ni conservar el mensaje cuando
+LibDebugLogger no esta disponible. Los metodos del visor tambien devuelven
+`false` sin escribir en el chat.
+
+Los addons funcionales deben mantener su ruta opcional independiente a
+LibDebugLogger mientras EZOCore siga siendo opcional. No se debe usar `Error`
+para diagnostico ordinario; queda reservado para errores capturados y
+suprimidos por el propio addon.
+
 ## Registrar Un Servicio
 
 Los servicios son tablas locales explicitas. EZOCore no ejecuta funciones por

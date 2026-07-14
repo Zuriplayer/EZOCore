@@ -100,6 +100,27 @@ end
 Current builds report `protocolDefinitionPending` and do not send data. Do not
 show unsolicited warnings for that state.
 
+## Use Shared Diagnostics
+
+The `family.debug` service centralizes optional LibDebugLogger access without
+making diagnostics a hard dependency:
+
+```lua
+local diagnostics = EZOCore and EZOCore:GetService("family.debug", 1)
+if diagnostics then
+    diagnostics:Debug("EZOTools", "Selected activity: %s", activityName)
+end
+```
+
+Available methods are `Log(tag, level, message, ...)`, `Debug`, `Info`, `Warn`,
+`Error`, `IsAvailable`, `IsViewerAvailable` and `ShowViewer`. Logging methods
+return `false` without formatting or retaining the message when LibDebugLogger
+is unavailable. Viewer methods also return `false` without printing to chat.
+
+Functional addons must retain their standalone optional LibDebugLogger path
+while EZOCore remains optional. Do not use `Error` for ordinary diagnostics;
+reserve it for errors caught and suppressed by addon code.
+
 ## Register A Service
 
 Services are explicit local tables. EZOCore does not execute functions by name.

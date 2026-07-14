@@ -22,10 +22,19 @@ local function OnAddOnLoaded(_, addonName)
         apiVersion = EZOCore.apiVersion,
         capabilities = {
             "family.presence",
+            "family.debug",
             "family.language",
             "family.settings",
         },
     })
+
+    if EZOCore.DebugService then
+        EZOCore:RegisterService(
+            EZOCore.DebugService.name,
+            EZOCore.DebugService.apiVersion,
+            EZOCore.DebugService
+        )
+    end
 
     if EZOCore.GroupPresence and type(EZOCore.GroupPresence.Initialize) == "function" then
         EZOCore.GroupPresence.Initialize()

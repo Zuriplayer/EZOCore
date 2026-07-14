@@ -4,6 +4,13 @@ All notable changes to EZOCore are documented in this file.
 
 ## Unreleased
 
+## [0.1.8] - 2026-07-14
+
+### Added
+
+- Local `family.debug` API v1 for shared LibDebugLogger logging and safe DebugLogViewer access.
+- No-op behavior with no chat output, buffers, timers or event handlers when the optional diagnostics backend is unavailable.
+
 ## [0.1.7] - 2026-07-14
 
 ### Changed

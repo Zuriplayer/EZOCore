@@ -61,6 +61,7 @@ Consumer integration examples live in [docs/consumer-integration.md](docs/consum
 - `family.presence` API v1: local presence facade over registered EZO addons, versions and capabilities.
 - `family.groupPresence` API v1: remote peer presence facade, currently disabled until LibGroupBroadcast IDs and the compact protocol are reserved/finalized.
 - `family.language` API v1: shared local language preference for EZO-family addons.
+- `family.debug` API v1: optional shared LibDebugLogger and DebugLogViewer access with no chat fallback or runtime work when the backend is unavailable.
 - local addon/capability registry: local-only discovery for consumers such as EZOTools.
 
 ## Requirements
