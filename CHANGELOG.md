@@ -4,6 +4,13 @@ All notable changes to EZOCore are documented in this file.
 
 ## Unreleased
 
+## [0.1.5] - 2026-07-14
+
+### Added
+
+- New Development and Unclassified EZO addons default to disabled on first detection.
+- Existing addon states are preserved when migrating to the policy, and later manual choices remain authoritative.
+
 ## [0.1.4] - 2026-07-14
 
 ### Changed

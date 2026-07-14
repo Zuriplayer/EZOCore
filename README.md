@@ -21,7 +21,7 @@ Not much on its own. EZOCore is meant to be an optional shared dependency for ot
 
 ## Settings panel
 
-EZOCore owns the central `Settings > EZO` hub. The native Settings entry uses the EZO family branding with its purple Z. Its left index combines addon navigation with enable/disable selectors: EZOCore remains checked and locked, while other installed EZO addons can be toggled and applied with the shared `Reload UI` button. Addons are grouped by their declared lifecycle stage, from stable and maintained work to beta and development builds; archived and unclassified states remain explicit. Each group uses the EZO purple information icon and keeps its explanation in the header tooltip. Disabled addons remain listed but cannot expose their settings until they are enabled and the UI reloads. Field-specific help remains on each setting control.
+EZOCore owns the central `Settings > EZO` hub. The native Settings entry uses the EZO family branding with its purple Z. Its left index combines addon navigation with enable/disable selectors: EZOCore remains checked and locked, while other installed EZO addons can be toggled and applied with the shared `Reload UI` button. Addons are grouped by their declared lifecycle stage, from stable and maintained work to beta and development builds; archived and unclassified states remain explicit. Newly discovered Development and Unclassified addons start disabled and require reload before their already loaded code is removed; enabling one manually is remembered and is not overridden later. The first upgrade to this policy preserves all currently installed addon states. Each group uses the EZO purple information icon and keeps its explanation in the header tooltip. Disabled addons remain listed but cannot expose their settings until they are enabled and the UI reloads. Field-specific help remains on each setting control.
 
 ## Language preference
 
@@ -51,7 +51,7 @@ EZOCore stores one account-wide EZO-family language mode: automatic, English, Sp
 - `EZOCore:UnregisterCallback(eventName, callback)`
 - `EZOCore:FireCallback(eventName, ...)`
 
-All of the above run locally in the current client. The global language preference is stored in EZOCore SavedVariables; addon registry, services and callbacks remain session-local and nothing is sent over the network.
+All of the above run locally in the current client. The global language preference and the first-seen addon policy are stored in EZOCore SavedVariables; addon registry, services and callbacks remain session-local and nothing is sent over the network.
 
 Addons should register with stable lowercase EZO ids, visible version, numeric `AddOnVersion`, local API version and capabilities. EZOCore rejects invalid metadata without breaking the caller.
 

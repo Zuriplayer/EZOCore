@@ -21,7 +21,7 @@ No demasiado por sí mismo. EZOCore está pensado como una dependencia opcional 
 
 ## Panel de ajustes
 
-EZOCore es propietario del hub central `Settings > EZO`. La entrada nativa de Ajustes usa la identidad visual de la familia EZO con la Z morada. Su índice lateral combina navegación y selectores de activación: EZOCore permanece marcado y bloqueado, mientras los demás addons EZO instalados se pueden activar o desactivar y aplicar mediante el botón común `Recargar UI`. Los addons se agrupan por su fase declarada, desde trabajos estables y mantenidos hasta versiones beta y en desarrollo; los estados archivado y sin clasificar permanecen explícitos. Cada grupo usa el icono informativo morado de EZO y mantiene su explicación en el tooltip de la cabecera. Los addons desactivados permanecen en la lista, pero no pueden mostrar sus ajustes hasta activarlos y recargar la interfaz. La ayuda específica de cada campo permanece en el tooltip de su propio control.
+EZOCore es propietario del hub central `Settings > EZO`. La entrada nativa de Ajustes usa la identidad visual de la familia EZO con la Z morada. Su índice lateral combina navegación y selectores de activación: EZOCore permanece marcado y bloqueado, mientras los demás addons EZO instalados se pueden activar o desactivar y aplicar mediante el botón común `Recargar UI`. Los addons se agrupan por su fase declarada, desde trabajos estables y mantenidos hasta versiones beta y en desarrollo; los estados archivado y sin clasificar permanecen explícitos. Los addons nuevos detectados en Desarrollo o Sin clasificar empiezan desactivados y requieren recarga para retirar el código ya cargado; si después activas uno manualmente, la decisión se recuerda y no se sobrescribe. La primera actualización a esta política conserva el estado de todos los addons instalados actualmente. Cada grupo usa el icono informativo morado de EZO y mantiene su explicación en el tooltip de la cabecera. Los addons desactivados permanecen en la lista, pero no pueden mostrar sus ajustes hasta activarlos y recargar la interfaz. La ayuda específica de cada campo permanece en el tooltip de su propio control.
 
 ## Preferencia de idioma
 
@@ -51,7 +51,7 @@ EZOCore guarda un modo de idioma de cuenta para la familia EZO: automático, ing
 - `EZOCore:UnregisterCallback(eventName, callback)`
 - `EZOCore:FireCallback(eventName, ...)`
 
-Todo lo anterior funciona localmente en el cliente actual. La preferencia global de idioma se guarda en las SavedVariables de EZOCore; el registro de addons, los servicios y los callbacks siguen siendo locales de sesión y nada se envía por red.
+Todo lo anterior funciona localmente en el cliente actual. La preferencia global de idioma y la política de primera detección se guardan en las SavedVariables de EZOCore; el registro de addons, los servicios y los callbacks siguen siendo locales de sesión y nada se envía por red.
 
 Los addons deben registrarse con IDs EZO estables en minúsculas, versión visible, `AddOnVersion` numérico, versión de API local y capacidades. EZOCore rechaza metadata inválida sin romper al llamador.
 

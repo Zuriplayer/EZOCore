@@ -18,6 +18,15 @@ local HUB_PANEL_ID = "EZOCore_EZO_Panel"
 local WINDOW_NAME = "EZOCoreSettingsWindow"
 local INFO_HEADER_TEXTURE = "EsoUI/Art/Miscellaneous/help_icon.dds"
 local UNCLASSIFIED_STAGE = "unclassified"
+local SAVED_VARIABLES_NAME = "EZOCoreSavedVariables"
+local SAVED_VARIABLES_VERSION = 1
+local HAD_SAVED_VARIABLES_AT_LOAD = type(_G.EZOCoreSavedVariables) == "table"
+local SETTINGS_DEFAULTS = {
+    addonLifecycleDefaults = {
+        initialized = false,
+        seenAddons = {},
+    },
+}
 local LIFECYCLE_STAGES = {
     stable = { order = 1, nameKey = "stageStable", tooltipKey = "stageStableTooltip" },
     maintenance = { order = 2, nameKey = "stageMaintenance", tooltipKey = "stageMaintenanceTooltip" },
@@ -59,13 +68,15 @@ local createdSettingsPanel = false
 local createdLamHubPanel = false
 local controlCounter = 0
 local RebuildHubOptions
+local settingsSv
 
 SETTINGS.reloadRequired = false
 
 local STRINGS = {
     en = {
         installedAddons = "Installed EZO addons",
-        installedAddonsTooltip = "Enable or disable installed EZO family addons. Changes require reload.",
+        installedAddonsTooltip = "Enable or disable installed EZO family addons. Changes require reload. "
+            .. "New Development and Unclassified addons start disabled; a later manual choice is preserved.",
         addonSettingsTooltip = "Open settings registered by installed EZO addons through EZOCore.",
         languageHeader = "Language",
         languageHeaderTooltip = "Choose whether EZOCore manages one language for the EZO family "
@@ -109,7 +120,8 @@ local STRINGS = {
     es = {
         installedAddons = "Addons EZO instalados",
         installedAddonsTooltip = "Activa o desactiva addons instalados de la familia EZO. "
-            .. "Los cambios requieren recarga.",
+            .. "Los cambios requieren recarga. Los addons nuevos en Desarrollo y Sin clasificar "
+            .. "empiezan desactivados; una elección manual posterior se conserva.",
         addonSettingsTooltip = "Abre la configuración registrada por addons EZO instalados mediante EZOCore.",
         languageHeader = "Idioma",
         languageHeaderTooltip = "Elige si EZOCore gestiona un idioma para la familia EZO "
@@ -227,6 +239,52 @@ end
 
 local function GetLifecycleDefinition(stage)
     return LIFECYCLE_STAGES[stage] or LIFECYCLE_STAGES[UNCLASSIFIED_STAGE]
+end
+
+local function EnsureSettingsSavedVariables()
+    if settingsSv then
+        return settingsSv
+    end
+
+    if type(ZO_SavedVars) == "table" and type(ZO_SavedVars.NewAccountWide) == "function" then
+        settingsSv = ZO_SavedVars:NewAccountWide(
+            SAVED_VARIABLES_NAME,
+            SAVED_VARIABLES_VERSION,
+            nil,
+            SETTINGS_DEFAULTS)
+    else
+        settingsSv = {
+            addonLifecycleDefaults = {
+                initialized = false,
+                seenAddons = {},
+            },
+        }
+        EZOCore:Warn("Addon lifecycle defaults are session-only because ZO_SavedVars is unavailable")
+    end
+
+    if type(settingsSv.addonLifecycleDefaults) ~= "table" then
+        settingsSv.addonLifecycleDefaults = {}
+    end
+    local policy = settingsSv.addonLifecycleDefaults
+    if type(policy.seenAddons) ~= "table" then
+        policy.seenAddons = {}
+    end
+    policy.initialized = policy.initialized == true
+    return settingsSv
+end
+
+local function GetAddonLifecyclePolicy()
+    return EnsureSettingsSavedVariables().addonLifecycleDefaults
+end
+
+local function MarkAddonSeen(addonId)
+    if addonId then
+        GetAddonLifecyclePolicy().seenAddons[addonId] = true
+    end
+end
+
+local function ShouldDefaultDisableStage(stage)
+    return stage == "development" or stage == UNCLASSIFIED_STAGE
 end
 
 local function CompareLifecycleEntries(leftStage, leftName, rightStage, rightName)
@@ -409,7 +467,7 @@ local function RefreshReloadState()
     RefreshReloadButton()
 end
 
-local function SetAddOnEnabled(record, enabled)
+local function SetAddOnEnabled(record, enabled, suppressRefresh)
     local manager = ResolveAddOnManager()
     if not record or not manager or type(manager.SetAddOnEnabled) ~= "function" then
         return false
@@ -427,16 +485,55 @@ local function SetAddOnEnabled(record, enabled)
         record.enabled = enabled == true
         if addonId then
             pendingAddonStates[addonId] = record.enabled
+            MarkAddonSeen(addonId)
             RefreshReloadState()
         else
             SETTINGS.reloadRequired = true
             RefreshReloadButton()
         end
-        RebuildHubOptions()
-        SETTINGS:RefreshCurrentPanel()
+        if not suppressRefresh then
+            RebuildHubOptions()
+            SETTINGS:RefreshCurrentPanel()
+        end
         return true
     end
     return false
+end
+
+local function ApplyFirstSeenAddonDefaults()
+    local manager = ResolveAddOnManager()
+    if GetAddOnCount(manager) == nil then
+        return false
+    end
+
+    local policy = GetAddonLifecyclePolicy()
+    local preserveExisting = policy.initialized ~= true and HAD_SAVED_VARIABLES_AT_LOAD
+    local changed = false
+
+    for _, record in ipairs(GetInstalledEZOAddons()) do
+        local addonId = GetAddOnRecordId(record)
+        if addonId and policy.seenAddons[addonId] ~= true then
+            local stage = GetLifecycleStage(panelsById[addonId], addonId)
+            if not preserveExisting and ShouldDefaultDisableStage(stage) and record.enabled == true then
+                if SetAddOnEnabled(record, false, true) then
+                    changed = true
+                    EZOCore:Info(
+                        "New %s addon starts disabled until explicitly enabled: %s",
+                        stage,
+                        addonId)
+                end
+            end
+            policy.seenAddons[addonId] = true
+        end
+    end
+
+    policy.initialized = true
+    if changed then
+        RefreshReloadState()
+        RebuildHubOptions()
+        SETTINGS:RefreshCurrentPanel()
+    end
+    return true
 end
 
 local function CreateLabel(parent, name, text, font)
@@ -617,6 +714,7 @@ local function BuildLanguageOptions()
 end
 
 local function BuildInstalledAddonsOptions()
+    ApplyFirstSeenAddonDefaults()
     local manager = ResolveAddOnManager()
     local count = GetAddOnCount(manager)
     local canSet = CanSetAddOnEnabled()
@@ -849,6 +947,7 @@ local function GetMenuDisplayName(rowData)
 end
 
 local function BuildMenuRows()
+    ApplyFirstSeenAddonDefaults()
     local rows = {}
     local rowsById = {}
 
@@ -1429,6 +1528,7 @@ function SETTINGS.Open()
 end
 
 function SETTINGS.Initialize()
+    ApplyFirstSeenAddonDefaults()
     if RegisterNativeSettingsPanel() then
         return true
     end
