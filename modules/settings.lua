@@ -45,8 +45,6 @@ local STRINGS = {
         state = "State: %s",
         hubDescription = "Central access point for EZO family addon settings.",
         addonSettings = "Addon settings",
-        openAddonSettings = "Open settings",
-        openAddonSettingsTooltip = "Open the normal LibAddonMenu panel for %s.",
         panelUnavailable = "Settings panel is not available yet: %s",
     },
     es = {
@@ -67,8 +65,6 @@ local STRINGS = {
         state = "Estado: %s",
         hubDescription = "Acceso central a la configuracion de los addons de la familia EZO.",
         addonSettings = "Configuracion de addons",
-        openAddonSettings = "Abrir opciones",
-        openAddonSettingsTooltip = "Abre el panel normal de LibAddonMenu para %s.",
         panelUnavailable = "El panel de configuracion todavia no esta disponible: %s",
     },
 }
@@ -442,31 +438,6 @@ local function BuildManagerEntry()
     }
 end
 
-local function GetLamPanel(entry)
-    if not entry then
-        return nil
-    end
-    if entry.lamPanel then
-        return entry.lamPanel
-    end
-    if IsNonEmptyString(entry.panelId) and _G then
-        return _G[entry.panelId]
-    end
-    return nil
-end
-
-local function OpenLamPanel(entry)
-    local LAM = GetLam()
-    local panel = GetLamPanel(entry)
-    if LAM and panel and type(LAM.OpenToPanel) == "function" then
-        LAM:OpenToPanel(panel)
-        return true
-    end
-
-    EZOCore:Warn(T("panelUnavailable", entry and entry.addonId or "?"))
-    return false
-end
-
 local function RebuildHubOptions()
     for key in pairs(hubOptions) do
         hubOptions[key] = nil
@@ -484,14 +455,20 @@ local function RebuildHubOptions()
         if entry then
             local panelData = entry.panelData or {}
             local displayName = StripMarkup(panelData.displayName or panelData.name or entry.addonId)
+            local controls = ResolveOptions(entry)
+            if type(controls) ~= "table" or #controls == 0 then
+                controls = {
+                    {
+                        type = "description",
+                        text = T("noOptions"),
+                    },
+                }
+            end
             addonControls[#addonControls + 1] = {
-                type = "button",
+                type = "submenu",
                 name = displayName,
-                tooltip = T("openAddonSettingsTooltip", displayName),
-                func = function()
-                    OpenLamPanel(entry)
-                end,
-                width = "full",
+                tooltip = StripMarkup(panelData.description or ""),
+                controls = controls,
             }
         end
     end

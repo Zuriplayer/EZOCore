@@ -120,8 +120,9 @@ if EZOCore and type(EZOCore.RegisterSettingsPanel) == "function" then
 end
 ```
 
-Asi el hub central `Settings > EZO` puede abrir el panel LAM probado en vez de
-reimplementar todos los widgets dentro de una ventana nativa propia.
+El hub central `Settings > EZO` dibuja los controles LAM registrados por cada
+addon dentro de un submenú propio. Al seleccionar un addon se permanece dentro
+del panel EZO y no se navega a la entrada estándar de configuración del addon.
 
 ## Callbacks Locales
 
