@@ -1,7 +1,6 @@
 local EZOCore = EZOCore
 
--- Remote/group state for future LibGroupBroadcast transport.
--- The transport stays disabled until EZO reserves official LibGroupBroadcast IDs.
+-- Remote group presence over the single LibGroupBroadcast protocol owned by EZOCore.
 
 local GROUP_PRESENCE = {}
 EZOCore.GroupPresence = GROUP_PRESENCE
@@ -26,6 +25,7 @@ local LGB_REQUEST_EVENT_NAME = "EZO_CORE_GROUP_REQUEST_V1"
 local WIRE_MESSAGE_TYPES = {
     presence = 1,
     activityState = 2,
+    performanceState = 3,
 }
 
 local WIRE_ACTIVITY_TYPES = {
@@ -51,6 +51,13 @@ local WIRE_ACTIVITY_RESULTS = {
     cancelled = 3,
     failed = 4,
     interrupted = 5,
+}
+
+local WIRE_PRIVACY_STATES = {
+    unknown = 0,
+    public = 1,
+    private = 2,
+    hidden = 3,
 }
 
 -- Stable wire keys keep presence messages compact. Never reuse a retired key.
@@ -95,6 +102,8 @@ local CAPABILITY_BITS = {
     ["combat.metrics"] = 15,
     ["hud.visualOverlay"] = 16,
     ["pvp.travel"] = 17,
+    ["group.performanceState.provider"] = 18,
+    ["group.performanceState.consumer"] = 19,
 }
 
 local CAPABILITY_BY_BIT = {}
@@ -104,6 +113,9 @@ end
 
 local peersByUnitTag = {}
 local activitySequenceByUnitTag = {}
+local performanceSequenceByUnitTag = {}
+local performanceStateByUnitTag = {}
+local performancePublishedAtBySourceKey = {}
 local sequence = 0
 local presenceSessionId = math.random(0, SESSION_ID_MODULUS - 1)
 if type(_G.GetFrameTimeMilliseconds) == "function" then
@@ -196,6 +208,30 @@ local function IsKnownEnumValue(enumValues, value)
     return false
 end
 
+local function NormalizeEnumValue(enumValues, value)
+    if type(value) == "string" then
+        return enumValues[value]
+    end
+    if IsKnownEnumValue(enumValues, value) then
+        return value
+    end
+    return nil
+end
+
+local function GetEnumName(enumValues, value)
+    for name, enumValue in pairs(enumValues) do
+        if enumValue == value then
+            return name
+        end
+    end
+    return nil
+end
+
+local function NextSequence()
+    sequence = (sequence % (SEQUENCE_MODULUS - 1)) + 1
+    return sequence
+end
+
 local function CopyArray(value)
     local out = {}
     if type(value) ~= "table" then
@@ -243,6 +279,26 @@ local function CopyPeer(peer)
         receivedAt = peer.receivedAt,
         expiresAt = peer.expiresAt,
         addons = addons,
+        performanceState = nil,
+    }
+end
+
+local function CopyPerformanceState(state)
+    if type(state) ~= "table" then
+        return nil
+    end
+    return {
+        unitTag = state.unitTag,
+        protocolVersion = state.protocolVersion,
+        sequence = state.sequence,
+        sourceAddonKey = state.sourceAddonKey,
+        sourceAddonId = state.sourceAddonId,
+        pingMs = state.pingMs,
+        fps = state.fps,
+        privacyState = state.privacyState,
+        ttlSeconds = state.ttlSeconds,
+        receivedAt = state.receivedAt,
+        expiresAt = state.expiresAt,
     }
 end
 
@@ -327,8 +383,33 @@ local function NormalizeRemoteAddons(addons)
     return out
 end
 
+local function ResolveAddonKey(addonIdOrKey)
+    if IsIntegerInRange(addonIdOrKey, 1, 63) and ADDON_ID_BY_KEY[addonIdOrKey] then
+        return addonIdOrKey
+    end
+    if type(addonIdOrKey) == "string" then
+        return ADDON_KEYS[string.lower(addonIdOrKey)]
+    end
+    return nil
+end
+
+local function NormalizeTtlSeconds(value, defaultValue)
+    local ttl = tonumber(value) or defaultValue or 30
+    ttl = math.floor(ttl)
+    if ttl < 15 then
+        ttl = 15
+    elseif ttl > 300 then
+        ttl = 300
+    end
+    return ttl
+end
+
 local function IsPeerExpired(peer, now)
     return type(peer) ~= "table" or (tonumber(peer.expiresAt) or 0) <= now
+end
+
+local function IsStateExpired(state, now)
+    return type(state) ~= "table" or (tonumber(state.expiresAt) or 0) <= now
 end
 
 local function ResolveDisplayName(unitTag)
@@ -396,6 +477,15 @@ local function AddGroupProtocolFields(targetProtocol, lgb)
             lgb.CreateNumericField("ttlSeconds", { minValue = 15, maxValue = 300 }),
             lgb.CreateStringField("targetKey", { minLength = 0, maxLength = 32 }),
         }),
+        lgb.CreateTableField("performanceState", {
+            lgb.CreateNumericField("protocolVersion", { minValue = 1, maxValue = 15 }),
+            lgb.CreateNumericField("sequence", { minValue = 1, maxValue = 65535 }),
+            lgb.CreateNumericField("sourceAddonKey", { minValue = 1, maxValue = 63 }),
+            lgb.CreateNumericField("pingMs", { minValue = 0, maxValue = 4095 }),
+            lgb.CreateNumericField("fps", { minValue = 0, maxValue = 255 }),
+            lgb.CreateNumericField("privacyState", { minValue = 0, maxValue = 7 }),
+            lgb.CreateNumericField("ttlSeconds", { minValue = 15, maxValue = 300 }),
+        }),
     }, { maxNumVariants = 8 }))
     return true
 end
@@ -422,7 +512,6 @@ local function RefreshStatus()
 end
 
 local function GetLocalPresencePayload()
-    sequence = (sequence % 65535) + 1
     local presence = EZOCore.Presence
     local addons = presence and presence.GetLocalAddons and presence.GetLocalAddons() or {}
     local wireAddons = {}
@@ -444,7 +533,7 @@ local function GetLocalPresencePayload()
     return { presence = {
         protocolVersion = PRESENCE_PROTOCOL_VERSION,
         sessionId = presenceSessionId,
-        sequence = sequence,
+        sequence = NextSequence(),
         ttlSeconds = PEER_TTL_SECONDS,
         addons = wireAddons,
     } }
@@ -533,9 +622,12 @@ local function HandleRemoteActivityState(unitTag, data)
         sequence = data.sequence,
         sourceAddonKey = data.sourceAddonKey,
         sourceAddonId = sourceAddonId,
-        activityType = data.activityType,
-        stage = data.stage,
-        result = data.result,
+        activityType = GetEnumName(WIRE_ACTIVITY_TYPES, data.activityType),
+        activityTypeCode = data.activityType,
+        stage = GetEnumName(WIRE_ACTIVITY_STAGES, data.stage),
+        stageCode = data.stage,
+        result = GetEnumName(WIRE_ACTIVITY_RESULTS, data.result),
+        resultCode = data.result,
         sessionId = data.sessionId,
         ttlSeconds = data.ttlSeconds,
         targetKey = data.targetKey,
@@ -543,6 +635,61 @@ local function HandleRemoteActivityState(unitTag, data)
     }
     EZOCore:FireCallback("EZO_CORE_GROUP_ACTIVITY_STATE_UPDATED", unitTag, state)
     EZOCore:FireCallback("EZOCore:GroupActivityStateUpdated", unitTag, state)
+    return true
+end
+
+local function HandleRemotePerformanceState(unitTag, data)
+    if not IsCurrentGroupUnit(unitTag) or type(data) ~= "table" then
+        return false
+    end
+
+    local previousPerformance = performanceSequenceByUnitTag[unitTag]
+    local previousPerformanceSequence = previousPerformance and previousPerformance.sequence or nil
+    if data.protocolVersion ~= PRESENCE_PROTOCOL_VERSION
+        or not IsNewerSequence(data.sequence, previousPerformanceSequence)
+        or not IsIntegerInRange(data.ttlSeconds, 15, 300)
+        or not IsIntegerInRange(data.pingMs, 0, 4095)
+        or not IsIntegerInRange(data.fps, 0, 255)
+        or not IsKnownEnumValue(WIRE_PRIVACY_STATES, data.privacyState) then
+        return false
+    end
+
+    local peer = peersByUnitTag[unitTag]
+    local sourceAddonId = ADDON_ID_BY_KEY[data.sourceAddonKey]
+    local sourceAddon = peer and sourceAddonId and peer.addons[sourceAddonId]
+    if IsPeerExpired(peer, NowSeconds())
+        or not sourceAddon
+        or not sourceAddon.capabilitySet
+        or sourceAddon.capabilitySet["group.performanceState.provider"] ~= true then
+        return false
+    end
+
+    local now = NowSeconds()
+    performanceSequenceByUnitTag[unitTag] = {
+        sequence = data.sequence,
+    }
+    performanceStateByUnitTag[unitTag] = {
+        unitTag = unitTag,
+        protocolVersion = data.protocolVersion,
+        sequence = data.sequence,
+        sourceAddonKey = data.sourceAddonKey,
+        sourceAddonId = sourceAddonId,
+        pingMs = data.pingMs,
+        fps = data.fps,
+        privacyState = data.privacyState,
+        ttlSeconds = data.ttlSeconds,
+        receivedAt = now,
+        expiresAt = now + data.ttlSeconds,
+    }
+
+    EZOCore:FireCallback(
+        "EZO_CORE_GROUP_PERFORMANCE_STATE_UPDATED",
+        unitTag,
+        CopyPerformanceState(performanceStateByUnitTag[unitTag]))
+    EZOCore:FireCallback(
+        "EZOCore:GroupPerformanceStateUpdated",
+        unitTag,
+        CopyPerformanceState(performanceStateByUnitTag[unitTag]))
     return true
 end
 
@@ -555,6 +702,9 @@ local function HandleRemoteGroupMessage(unitTag, data)
     end
     if type(data.activityState) == "table" then
         return HandleRemoteActivityState(unitTag, data.activityState)
+    end
+    if type(data.performanceState) == "table" then
+        return HandleRemotePerformanceState(unitTag, data.performanceState)
     end
     return false
 end
@@ -591,6 +741,8 @@ local function RegisterLibGroupBroadcast()
         if lgb:RegisterForCustomEvent(LGB_REQUEST_EVENT_NAME, function(unitTag)
             if IsCurrentGroupUnit(unitTag) then
                 SchedulePresenceAnnouncement(250, 750)
+                EZOCore:FireCallback("EZO_CORE_GROUP_PRESENCE_REQUESTED", unitTag)
+                EZOCore:FireCallback("EZOCore:GroupPresenceRequested", unitTag)
             end
         end) ~= true then
             error("LibGroupBroadcast custom event callback could not be registered")
@@ -608,6 +760,35 @@ local function RegisterLibGroupBroadcast()
 
     RefreshStatus()
     return status.active == true
+end
+
+local function CanSendProtocolMessage()
+    GROUP_PRESENCE.Initialize()
+    if not protocol or type(protocol.IsEnabled) ~= "function" then
+        return false, status.reason
+    end
+    if not IsLocalPlayerGrouped() then
+        return false, "notGrouped"
+    end
+    if not protocol:IsEnabled() then
+        return false, "protocolDisabled"
+    end
+    return true
+end
+
+local function SendProtocolMessage(payload)
+    local canSend, reason = CanSendProtocolMessage()
+    if not canSend then
+        return false, reason
+    end
+    return protocol:Send(payload, { replaceQueuedMessages = true, isRelevantInCombat = false })
+end
+
+local function ResolveStateArgument(first, second)
+    if second ~= nil then
+        return second
+    end
+    return first
 end
 
 function GROUP_PRESENCE.Initialize()
@@ -662,10 +843,12 @@ function GROUP_PRESENCE.GetProtocolSpec()
         messageTypes = {
             presence = WIRE_MESSAGE_TYPES.presence,
             activityState = WIRE_MESSAGE_TYPES.activityState,
+            performanceState = WIRE_MESSAGE_TYPES.performanceState,
         },
         activityTypes = WIRE_ACTIVITY_TYPES,
         activityStages = WIRE_ACTIVITY_STAGES,
         activityResults = WIRE_ACTIVITY_RESULTS,
+        privacyStates = WIRE_PRIVACY_STATES,
         addonKeys = ADDON_KEYS,
         capabilityBits = CAPABILITY_BITS,
     }
@@ -696,6 +879,8 @@ function GROUP_PRESENCE.PrunePeers(checkCurrentGroup)
             or identityChanged then
             peersByUnitTag[unitTag] = nil
             activitySequenceByUnitTag[unitTag] = nil
+            performanceSequenceByUnitTag[unitTag] = nil
+            performanceStateByUnitTag[unitTag] = nil
         end
     end
 end
@@ -704,7 +889,12 @@ function GROUP_PRESENCE.GetRemotePeers()
     GROUP_PRESENCE.PrunePeers()
     local out = {}
     for _, peer in pairs(peersByUnitTag) do
-        out[#out + 1] = CopyPeer(peer)
+        local copiedPeer = CopyPeer(peer)
+        local performanceState = performanceStateByUnitTag[peer.unitTag]
+        if copiedPeer and not IsStateExpired(performanceState, NowSeconds()) then
+            copiedPeer.performanceState = CopyPerformanceState(performanceState)
+        end
+        out[#out + 1] = copiedPeer
     end
     table.sort(out, function(left, right)
         return tostring(left.unitTag or "") < tostring(right.unitTag or "")
@@ -714,7 +904,23 @@ end
 
 function GROUP_PRESENCE.GetRemotePeer(_, unitTag)
     GROUP_PRESENCE.PrunePeers()
-    return CopyPeer(peersByUnitTag[unitTag])
+    local peer = CopyPeer(peersByUnitTag[unitTag])
+    local performanceState = performanceStateByUnitTag[unitTag]
+    if peer and not IsStateExpired(performanceState, NowSeconds()) then
+        peer.performanceState = CopyPerformanceState(performanceState)
+    end
+    return peer
+end
+
+function GROUP_PRESENCE.GetPeerPerformanceState(_, unitTag)
+    GROUP_PRESENCE.PrunePeers()
+    local state = performanceStateByUnitTag[unitTag]
+    if IsStateExpired(state, NowSeconds()) then
+        performanceStateByUnitTag[unitTag] = nil
+        performanceSequenceByUnitTag[unitTag] = nil
+        return nil
+    end
+    return CopyPerformanceState(state)
 end
 
 function GROUP_PRESENCE.GetPeerAddon(_, unitTag, addonId)
@@ -769,17 +975,121 @@ function GROUP_PRESENCE.GetPeerCompatibility(_, unitTag, addonId, capability, mi
 end
 
 function GROUP_PRESENCE.AnnounceLocalPresence()
-    GROUP_PRESENCE.Initialize()
-    if not protocol or not protocol.IsEnabled then
-        return false, status.reason
+    return SendProtocolMessage(GetLocalPresencePayload())
+end
+
+function GROUP_PRESENCE.PublishActivityState(first, second)
+    local state = ResolveStateArgument(first, second)
+    if type(state) ~= "table" then
+        return false, "invalidState"
+    end
+
+    local sourceAddonKey = ResolveAddonKey(state.sourceAddonKey or state.sourceAddonId or state.addonId)
+    local activityType = NormalizeEnumValue(WIRE_ACTIVITY_TYPES, state.activityType)
+    local stage = NormalizeEnumValue(WIRE_ACTIVITY_STAGES, state.stage)
+    local result = NormalizeEnumValue(WIRE_ACTIVITY_RESULTS, state.result)
+    local sessionId = math.floor(tonumber(state.sessionId) or 0)
+    local targetKey = tostring(state.targetKey or "")
+    if not sourceAddonKey then
+        return false, "invalidSourceAddon"
+    end
+    if not activityType or not stage or not result then
+        return false, "invalidActivityState"
+    end
+    if not IsIntegerInRange(sessionId, 0, 4294967295) then
+        return false, "invalidSessionId"
+    end
+    if #targetKey > 32 then
+        return false, "invalidTargetKey"
+    end
+    local sourceAddonId = ADDON_ID_BY_KEY[sourceAddonKey]
+    local presence = EZOCore.Presence
+    if not sourceAddonId
+        or not presence
+        or type(presence.HasLocalCapability) ~= "function"
+        or not presence.HasLocalCapability(
+            presence,
+            sourceAddonId,
+            "group.activityState.provider",
+            1
+        ) then
+        return false, "providerCapabilityMissing"
     end
     if not IsLocalPlayerGrouped() then
         return false, "notGrouped"
     end
-    if not protocol:IsEnabled() then
-        return false, "protocolDisabled"
+    if type(_G.IsUnitGroupLeader) == "function" and not _G.IsUnitGroupLeader("player") then
+        return false, "notGroupLeader"
     end
-    return protocol:Send(GetLocalPresencePayload(), { replaceQueuedMessages = true, isRelevantInCombat = false })
+
+    return SendProtocolMessage({ activityState = {
+        protocolVersion = PRESENCE_PROTOCOL_VERSION,
+        sequence = NextSequence(),
+        sourceAddonKey = sourceAddonKey,
+        activityType = activityType,
+        stage = stage,
+        result = result,
+        sessionId = sessionId,
+        ttlSeconds = NormalizeTtlSeconds(state.ttlSeconds, 60),
+        targetKey = targetKey,
+    } })
+end
+
+function GROUP_PRESENCE.PublishPerformanceState(first, second)
+    local state = ResolveStateArgument(first, second)
+    if type(state) ~= "table" then
+        return false, "invalidState"
+    end
+
+    local sourceAddonKey = ResolveAddonKey(state.sourceAddonKey or state.sourceAddonId or state.addonId)
+    local pingMs = math.floor(tonumber(state.pingMs) or tonumber(state.ping) or -1)
+    local fps = math.floor(tonumber(state.fps) or -1)
+    local privacyState = NormalizeEnumValue(WIRE_PRIVACY_STATES, state.privacyState or state.privacy)
+    if not sourceAddonKey then
+        return false, "invalidSourceAddon"
+    end
+    if not IsIntegerInRange(pingMs, 0, 4095) then
+        return false, "invalidPing"
+    end
+    if not IsIntegerInRange(fps, 0, 255) then
+        return false, "invalidFps"
+    end
+    if not privacyState then
+        return false, "invalidPrivacyState"
+    end
+    local sourceAddonId = ADDON_ID_BY_KEY[sourceAddonKey]
+    local presence = EZOCore.Presence
+    if not sourceAddonId
+        or not presence
+        or type(presence.HasLocalCapability) ~= "function"
+        or not presence.HasLocalCapability(
+            presence,
+            sourceAddonId,
+            "group.performanceState.provider",
+            1
+        ) then
+        return false, "providerCapabilityMissing"
+    end
+
+    local now = NowSeconds()
+    local lastPublishedAt = performancePublishedAtBySourceKey[sourceAddonKey]
+    if now > 0 and lastPublishedAt and (now - lastPublishedAt) < 10 then
+        return false, "throttled"
+    end
+
+    local sent, reason = SendProtocolMessage({ performanceState = {
+        protocolVersion = PRESENCE_PROTOCOL_VERSION,
+        sequence = NextSequence(),
+        sourceAddonKey = sourceAddonKey,
+        pingMs = pingMs,
+        fps = fps,
+        privacyState = privacyState,
+        ttlSeconds = NormalizeTtlSeconds(state.ttlSeconds, 30),
+    } })
+    if sent then
+        performancePublishedAtBySourceKey[sourceAddonKey] = now
+    end
+    return sent, reason
 end
 
 function GROUP_PRESENCE.RequestPresence()

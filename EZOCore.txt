@@ -1,8 +1,8 @@
 ## Title: EZOCore
 ## Author: @Zuriplayer
 ## Description: Local service layer for EZO addons: addon registry, service discovery, capabilities, callbacks and diagnostics.
-## Version: 0.1.11
-## AddOnVersion: 111
+## Version: 0.1.12
+## AddOnVersion: 112
 ## APIVersion: 101049 101050
 ## SavedVariables: EZOCoreSavedVariables
 ## OptionalDependsOn: LibDebugLogger DebugLogViewer LibAddonMenu-2.0 LibGroupBroadcast
@@ -11,6 +11,7 @@ EZOCore.lua
 modules/debug.lua
 modules/registry.lua
 modules/callbacks.lua
+modules/local_state.lua
 modules/presence.lua
 modules/group_presence.lua
 modules/language.lua

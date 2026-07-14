@@ -6,15 +6,15 @@ Capa de servicios locales para addons de EZO en *The Elder Scrolls Online*: regi
 
 ## Fase actual
 
-EZOCore está actualmente en **beta pública** dentro de una fase de vista previa de servicio solo local:
+EZOCore está actualmente en **beta pública** como capa de servicios compartidos:
 
 - Expone una pequeña API local de registro/servicio/callbacks que funciona por completo dentro de un único cliente de ESO.
 - Es propietario del menú central `Settings > EZO` para la configuración de los addons de la familia EZO, con cabeceras informativas estándar de EZO.
 - Proporciona un modo de idioma común para la familia EZO: automático, inglés, español o "dejar que cada addon elija"; los addons independientes conservan su fallback propio cuando EZOCore no está instalado o el modo central permite opciones locales.
 - Coordina modos temporales de movimiento global e individual para los addons EZO que registran superficies HUD compatibles; las previsualizaciones permanecen ocultas en Settings y aparecen al volver al HUD principal.
-- Todavía no hay sincronización de grupo activa ni comunicación entre jugadores. EZOCore puede detectar LibGroupBroadcast y exponer un servicio `family.groupPresence` desactivado. Su formato compacto usa ahora la API pública de la librería y valida pertenencia al grupo, versión del protocolo, secuencia, TTL, claves conocidas de addons y capacidades. El envío sigue bloqueado hasta reservar los IDs oficiales del protocolo y del evento personalizado; consulta [docs/group-presence-protocol.es.md](docs/group-presence-protocol.es.md).
+- Es el único propietario del transporte LibGroupBroadcast de la familia EZO: `EZO_CORE_GROUP_V1` (`513`) y `EZO_CORE_GROUP_REQUEST_V1` (`3`). Estando en grupo, los clientes con EZOCore y el protocolo habilitado en LibGroupBroadcast pueden intercambiar presencia compacta de addons, builds numéricas, capacidades, estado de actividad y estado opcional de rendimiento. Consulta [docs/group-presence-protocol.es.md](docs/group-presence-protocol.es.md).
 - No hay automatización remota disparada desde dentro del juego; los GitHub Actions de este repositorio son workflows manuales, disparados por el desarrollador, para empaquetar y publicar el estado en Discord.
-- Beta pública significa que el repositorio está visible para revisión/pruebas, pero el conjunto implementado sigue limitado intencionadamente a servicios locales.
+- Beta pública significa que el repositorio está visible para revisión/pruebas y que el transporte de presencia de grupo todavía necesita pruebas con varios clientes antes de que otros addons dependan de él para comportamientos visibles.
 
 ## ¿Este addon hace algo por sí solo?
 
@@ -30,7 +30,7 @@ La sección Disposición de interfaz puede desbloquear todas las superficies EZO
 
 EZOCore guarda un modo de idioma de cuenta para la familia EZO: automático, inglés, español o "dejar que cada addon elija". Automático, inglés y español desactivan los selectores de idioma de los addons integrados y aplican la elección central. "Dejar que cada addon elija" vuelve a habilitar el selector local de cada addon. Los addons instalados sin EZOCore deben seguir exponiendo su propio fallback local de idioma.
 
-## API (fase local)
+## API
 
 - `EZOCore:RegisterAddon(metadata)`
 - `EZOCore:GetAddon(addonId)`
@@ -54,7 +54,7 @@ EZOCore guarda un modo de idioma de cuenta para la familia EZO: automático, ing
 - `EZOCore:UnregisterCallback(eventName, callback)`
 - `EZOCore:FireCallback(eventName, ...)`
 
-Todo lo anterior funciona localmente en el cliente actual. La preferencia global de idioma y la política de primera detección se guardan en las SavedVariables de EZOCore; el registro de addons, los servicios y los callbacks siguen siendo locales de sesión y nada se envía por red.
+Las APIs de registro, estado local, ajustes, idioma, disposición, diagnóstico y callbacks funcionan localmente en el cliente actual. La preferencia global de idioma y la política de primera detección se guardan en las SavedVariables de EZOCore. Solo `family.groupPresence` usa LibGroupBroadcast, únicamente estando en grupo y cuando sus ajustes de usuario lo permiten.
 
 Los addons deben registrarse con IDs EZO estables en minúsculas, versión visible, `AddOnVersion` numérico, versión de API local y capacidades. EZOCore rechaza metadata inválida sin romper al llamador.
 
@@ -62,15 +62,17 @@ Los ejemplos de integración para consumidores viven en [docs/consumer-integrati
 
 - `family.settings` API v1: registro central en `Settings > EZO`, navegación y controles de carga de addons instalados.
 - `family.presence` API v1: fachada local de presencia sobre addons EZO registrados, versiones y capacidades.
+- `family.localState` API v1: intercambio de estado local de sesión entre addons EZO en el mismo cliente.
 - `family.groupPresence` API v1: fachada de presencia remota entre peers usando el protocolo reservado de LibGroupBroadcast `EZO_CORE_GROUP_V1` (`513`) y el evento de solicitud `EZO_CORE_GROUP_REQUEST_V1` (`3`).
 - `family.language` API v1: preferencia local de idioma compartida para addons de la familia EZO.
 - `family.debug` API v1: acceso común opcional a LibDebugLogger y DebugLogViewer, sin fallback al chat ni trabajo en ejecución cuando el backend no está disponible.
 - `family.layout` API v1: registro de sesión y coordinación global e individual del movimiento para superficies HUD EZO compatibles.
 - registro local de addons/capacidades: descubrimiento solo local para consumidores como EZOTools.
 
-El servicio preparado `family.groupPresence` expone consultas de estado y
+El servicio `family.groupPresence` expone consultas de estado y
 especificación, consulta de peers/addons remotos, comprobaciones de
-compatibilidad por capacidad/build, anuncio de presencia y solicitud de
+compatibilidad por capacidad/build, anuncio de presencia, publicación de
+actividad/rendimiento, consulta de rendimiento remoto y solicitud de
 resincronización. Los métodos de anuncio y solicitud devuelven un motivo sin
 enviar cuando el transporte, el grupo o el ajuste correspondiente del usuario
 en LibGroupBroadcast no están disponibles.
@@ -80,7 +82,7 @@ en LibGroupBroadcast no están disponibles.
 - The Elder Scrolls Online (PC)
 - Opcional: LibDebugLogger, DebugLogViewer (para diagnóstico; EZOCore se degrada sin romperse si no están)
 - Opcional: LibAddonMenu-2.0 (para dibujar controles de opciones registrados en `Settings > EZO`)
-- Opcional: LibGroupBroadcast (se detecta para el servicio preparado de presencia de grupo; la build actual no envía datos)
+- Opcional: LibGroupBroadcast 2.0.0 (solo es necesario para la presencia EZO entre jugadores; todos los servicios locales de EZOCore continúan sin él)
 
 ## Instalación
 
@@ -90,7 +92,7 @@ en LibGroupBroadcast no están disponibles.
 
 ## Hoja de ruta (todavía no implementado)
 
-Fases futuras podrán activar presencia entre jugadores mediante LibGroupBroadcast después de reservar y verificar ambos IDs oficiales. La build actual no envía datos de peers. El estado informativo de actividad no permite viajes remotos, invitaciones, cambios de grupo ni otras acciones automatizadas.
+EZOTools ya puede publicar y mostrar estado compacto de Actividades de grupo mediante este servicio. Fases futuras podrán conectar EZOGroupFrames y añadir acciones de miembros con activación expresa. El estado informativo de actividad y rendimiento no permite viajes remotos, invitaciones, cambios de grupo ni otras acciones automatizadas.
 
 ## Soporte
 

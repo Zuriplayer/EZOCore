@@ -4,6 +4,16 @@ All notable changes to EZOCore are documented in this file.
 
 ## Unreleased
 
+## [0.1.12] - 2026-07-15
+
+### Added
+
+- `family.localState` API v1 for session-only local state exchange between EZO
+  addons loaded in the same client.
+- Public `family.groupPresence:PublishActivityState(...)` and `PublishPerformanceState(...)` producer APIs.
+- Optional `performanceState` protocol variant with ping, FPS and privacy status plus remote performance lookup helpers.
+- Named, validated activity-state callbacks plus a local presence-request callback so providers can resynchronize current informational state without owning LibGroupBroadcast registrations.
+
 ## [0.1.11] - 2026-07-15
 
 ### Added

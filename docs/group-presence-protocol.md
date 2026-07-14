@@ -32,12 +32,11 @@ Top-level field:
 VariantField:
   presence
   activityState
+  performanceState
 ```
 
-The registry description leaves room for optional performance status. That
-should be added later as a `performanceState` variant after its field contract,
-LAM opt-in and throttling rules are implemented. The current build defines only
-`presence` and `activityState`.
+The `performanceState` variant is optional. Producers must expose an explicit
+opt-in and must not send it more often than the EZOCore service throttle allows.
 
 ### `presence`
 
@@ -102,6 +101,35 @@ that peer proves that the source addon exposes
 known enum values and payload bounds before firing local callbacks. This is
 informational state only and never authorizes a remote action.
 
+### `performanceState`
+
+Reserved for compact player performance/status hints such as EZOGroupFrames
+display badges. It is informational only.
+
+| Field | Range / format |
+| --- | --- |
+| `protocolVersion` | 1-15 |
+| `sequence` | 1-65535, wrap-aware |
+| `sourceAddonKey` | stable EZO addon key, 1-63 |
+| `pingMs` | 0-4095 |
+| `fps` | 0-255 |
+| `privacyState` | 0-7 |
+| `ttlSeconds` | 15-300 |
+
+Accepted privacy values in protocol v1:
+
+| Value | Meaning |
+| --- | --- |
+| `0` | unknown |
+| `1` | public/shared |
+| `2` | private |
+| `3` | hidden |
+
+The receiver accepts performance state only after a valid presence from that
+peer proves that the source addon exposes `group.performanceState.provider`.
+EZOCore exposes `PublishPerformanceState(...)` and throttles publication to at
+most once every 10 seconds per source addon key.
+
 ## Stable Addon Keys
 
 Keys are append-only and must never be reassigned to another addon.
@@ -148,6 +176,8 @@ wire representation.
 | 15 | `combat.metrics` |
 | 16 | `hud.visualOverlay` |
 | 17 | `pvp.travel` |
+| 18 | `group.performanceState.provider` |
+| 19 | `group.performanceState.consumer` |
 
 ## Current Runtime Contract
 
@@ -159,3 +189,14 @@ avoid unsolicited chat warnings.
 The implementation uses only LibGroupBroadcast's public field factories. The
 protocol and request event use the numeric IDs reserved in the official
 registry.
+
+Public `family.groupPresence` producer methods:
+
+- `PublishActivityState(state)`
+- `PublishPerformanceState(state)`
+
+Public consumer helpers:
+
+- `GetRemotePeer(unitTag)`
+- `GetRemotePeers()`
+- `GetPeerPerformanceState(unitTag)`

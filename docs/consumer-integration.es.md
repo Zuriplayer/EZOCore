@@ -2,7 +2,7 @@
 
 Este documento describe la superficie de integracion local actual para addons
 EZO. Solo cubre funcionalidad implementada ahora en EZOCore: registro local de
-addons, descubrimiento de servicios, capacidades, callbacks y el servicio
+addons, estado local, descubrimiento de servicios, capacidades, callbacks y el servicio
 central `Settings > EZO`.
 
 ## Alcance
@@ -83,11 +83,63 @@ end
 `GetLocalAddons()` devuelve solo el cliente actual. No implica nada sobre los
 miembros del grupo y no envia trafico por LibGroupBroadcast.
 
+## Intercambiar Estado Local
+
+Usa `family.localState` para datos de sesion compartidos entre addons EZO
+cargados en el mismo cliente. Es la ruta normal para coordinar addons entre si.
+No persiste estado y nunca envia datos a otros jugadores.
+
+Publicador:
+
+```lua
+local localState = EZOCore and EZOCore:GetService("family.localState", 1)
+if localState then
+    localState:Publish("ezotools.groupActivity", {
+        sourceAddon = "ezotools",
+        version = 1,
+        activityType = "trial",
+        stage = "staging",
+        targetKey = "sanitys_edge",
+        leader = true,
+    }, {
+        publisherAddonId = "ezotools",
+        version = 1,
+        ttlSeconds = 120,
+    })
+end
+```
+
+Consumidor:
+
+```lua
+local localState = EZOCore and EZOCore:GetService("family.localState", 1)
+if localState then
+    localState:Subscribe("ezotools.groupActivity", function(entry)
+        local value = entry and entry.value
+        if value then
+            -- Refrescar UI local desde value.stage, value.targetKey, etc.
+        end
+    end)
+
+    local current = localState:GetValue("ezotools.groupActivity")
+end
+```
+
+Reglas:
+
+- Las claves deben tener namespace, por ejemplo `ezotools.groupActivity`.
+- Los valores deben ser datos planos: strings, numeros, booleanos y tablas
+  pequenas.
+- No publiques funciones, controles, userdata ni referencias a SavedVariables.
+- No uses este servicio para datos entre jugadores; usa las APIs productoras de
+  `family.groupPresence` para datos que deban viajar por LibGroupBroadcast.
+- Los addons deben mantener su comportamiento independiente cuando EZOCore no
+  este presente.
+
 ## Consultar Estado De Presencia De Grupo
 
-El servicio `family.groupPresence` existe antes de activar trafico remoto. Sirve
-para que los consumidores comprueben si el transporte esta disponible y consulten
-estado de peers cuando el protocolo se active:
+El servicio `family.groupPresence` permite que los consumidores comprueben si el
+transporte registrado está disponible y consulten el estado actual de los peers:
 
 ```lua
 local groupPresence = EZOCore and EZOCore:GetService("family.groupPresence", 1)
@@ -97,6 +149,40 @@ if status and status.active then
         "group1", "ezotools", "group.activities", 1, 10145)
 end
 ```
+
+Los productores deben publicar mediante EZOCore, no declarando handlers de
+LibGroupBroadcast directamente:
+
+```lua
+local groupPresence = EZOCore and EZOCore:GetService("family.groupPresence", 1)
+if groupPresence then
+    groupPresence:PublishActivityState({
+        sourceAddonId = "ezotools",
+        activityType = "trial",
+        stage = "staging",
+        result = "active",
+        sessionId = 1,
+        ttlSeconds = 60,
+        targetKey = "example",
+    })
+
+    groupPresence:PublishPerformanceState({
+        sourceAddonId = "ezogroupframes",
+        pingMs = 42,
+        fps = 58,
+        privacyState = "public",
+        ttlSeconds = 30,
+    })
+end
+```
+
+Los consumidores reciben el estado de actividad validado mediante
+`EZO_CORE_GROUP_ACTIVITY_STATE_UPDATED`. El tipo de actividad, la etapa y el
+resultado son valores con nombre; los códigos compactos usados por red también
+se exponen con el sufijo `Code`. Los productores pueden escuchar
+`EZO_CORE_GROUP_PRESENCE_REQUESTED` y volver a publicar su estado actual después
+de resincronizar presencia. Son callbacks locales de EZOCore, no registros de
+LibGroupBroadcast propiedad del consumidor.
 
 Los dos últimos argumentos son la versión mínima de la API local y el
 `AddOnVersion` numérico mínimo opcional. Usa este último para compatibilidad de

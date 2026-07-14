@@ -1,7 +1,6 @@
 local EZOCore = EZOCore
 
 -- Entry point: wires up initialization once the addon has fully loaded.
--- Local phase only: no LibGroupBroadcast, no group/guild messaging here.
 
 local function OnAddOnLoaded(_, addonName)
     if addonName ~= EZOCore.name then
@@ -22,6 +21,8 @@ local function OnAddOnLoaded(_, addonName)
         apiVersion = EZOCore.apiVersion,
         capabilities = {
             "family.presence",
+            "family.localState",
+            "family.groupPresence",
             "family.debug",
             "family.language",
             "family.layout",

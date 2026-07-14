@@ -2,7 +2,7 @@
 
 This document describes the current local-only integration surface for EZO
 addons. It only covers functionality implemented in EZOCore now: local addon
-registration, service discovery, capabilities, callbacks and the central
+registration, local state, service discovery, capabilities, callbacks and the central
 `Settings > EZO` service.
 
 ## Scope
@@ -83,11 +83,61 @@ end
 `GetLocalAddons()` returns the current client only. It does not imply anything
 about group members and does not send LibGroupBroadcast traffic.
 
+## Exchange Local State
+
+Use `family.localState` for session-only data shared between EZO addons loaded
+in the same client. This is the normal path for addon-to-addon coordination. It
+does not persist state and never sends data to other players.
+
+Publisher:
+
+```lua
+local localState = EZOCore and EZOCore:GetService("family.localState", 1)
+if localState then
+    localState:Publish("ezotools.groupActivity", {
+        sourceAddon = "ezotools",
+        version = 1,
+        activityType = "trial",
+        stage = "staging",
+        targetKey = "sanitys_edge",
+        leader = true,
+    }, {
+        publisherAddonId = "ezotools",
+        version = 1,
+        ttlSeconds = 120,
+    })
+end
+```
+
+Consumer:
+
+```lua
+local localState = EZOCore and EZOCore:GetService("family.localState", 1)
+if localState then
+    localState:Subscribe("ezotools.groupActivity", function(entry)
+        local value = entry and entry.value
+        if value then
+            -- Refresh local UI from value.stage, value.targetKey, etc.
+        end
+    end)
+
+    local current = localState:GetValue("ezotools.groupActivity")
+end
+```
+
+Rules:
+
+- Keys must be namespaced, for example `ezotools.groupActivity`.
+- Values must be plain data: strings, numbers, booleans and small tables.
+- Do not publish functions, controls, userdata or SavedVariables references.
+- Do not use this service for cross-player data; use `family.groupPresence`
+  producer APIs for data that must travel through LibGroupBroadcast.
+- Addons must keep their standalone behavior when EZOCore is absent.
+
 ## Query Group Presence Readiness
 
-The `family.groupPresence` service is present before remote traffic is enabled.
-It lets consumers check whether the transport is available and query remote peer
-state once the protocol is activated:
+The `family.groupPresence` service lets consumers check whether the registered
+transport is available and query current remote peer state:
 
 ```lua
 local groupPresence = EZOCore and EZOCore:GetService("family.groupPresence", 1)
@@ -97,6 +147,39 @@ if status and status.active then
         "group1", "ezotools", "group.activities", 1, 10145)
 end
 ```
+
+Producers must publish through EZOCore, not by declaring LibGroupBroadcast
+handlers directly:
+
+```lua
+local groupPresence = EZOCore and EZOCore:GetService("family.groupPresence", 1)
+if groupPresence then
+    groupPresence:PublishActivityState({
+        sourceAddonId = "ezotools",
+        activityType = "trial",
+        stage = "staging",
+        result = "active",
+        sessionId = 1,
+        ttlSeconds = 60,
+        targetKey = "example",
+    })
+
+    groupPresence:PublishPerformanceState({
+        sourceAddonId = "ezogroupframes",
+        pingMs = 42,
+        fps = 58,
+        privacyState = "public",
+        ttlSeconds = 30,
+    })
+end
+```
+
+Consumers receive validated activity state through
+`EZO_CORE_GROUP_ACTIVITY_STATE_UPDATED`. Its activity type, stage and result are
+named values; the corresponding compact wire codes are also exposed with a
+`Code` suffix. Producers can listen for `EZO_CORE_GROUP_PRESENCE_REQUESTED` and
+republish their current state after presence resynchronization. These are local
+EZOCore callbacks, not LibGroupBroadcast registrations owned by the consumer.
 
 The final two arguments are the minimum local API version and optional minimum
 numeric `AddOnVersion`. Use the latter for build compatibility; do not compare

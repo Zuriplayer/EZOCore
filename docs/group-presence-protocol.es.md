@@ -32,12 +32,12 @@ Campo de primer nivel:
 VariantField:
   presence
   activityState
+  performanceState
 ```
 
-La descripcion del registro deja espacio para estado opcional de rendimiento.
-Debe añadirse mas adelante como variante `performanceState` cuando esten
-implementados su contrato de campos, el opt-in en LAM y las reglas de
-limitacion de envio. La build actual define solo `presence` y `activityState`.
+La variante `performanceState` es opcional. Los productores deben exponer opt-in
+explícito y no deben enviarla con más frecuencia de la permitida por el throttle
+del servicio EZOCore.
 
 ### `presence`
 
@@ -103,6 +103,36 @@ válida de ese peer demuestre que el addon emisor expone
 conocidos y los límites del payload antes de disparar callbacks locales. Este
 estado es solo informativo y nunca autoriza una acción remota.
 
+### `performanceState`
+
+Reservado para pistas compactas de rendimiento/estado del jugador, por ejemplo
+badges visuales en EZOGroupFrames. Es solo informativo.
+
+| Campo | Rango / formato |
+| --- | --- |
+| `protocolVersion` | 1-15 |
+| `sequence` | 1-65535, con control de desbordamiento |
+| `sourceAddonKey` | clave estable de addon EZO, 1-63 |
+| `pingMs` | 0-4095 |
+| `fps` | 0-255 |
+| `privacyState` | 0-7 |
+| `ttlSeconds` | 15-300 |
+
+Valores de privacidad aceptados en el protocolo v1:
+
+| Valor | Significado |
+| --- | --- |
+| `0` | desconocido |
+| `1` | público/compartido |
+| `2` | privado |
+| `3` | oculto |
+
+El receptor solo acepta estado de rendimiento después de que una presencia válida
+de ese peer demuestre que el addon emisor expone
+`group.performanceState.provider`. EZOCore expone
+`PublishPerformanceState(...)` y limita la publicación a una vez cada 10 segundos
+por clave de addon emisor.
+
 ## Claves Estables De Addons
 
 Las claves solo se pueden ampliar y nunca deben reasignarse a otro addon.
@@ -149,6 +179,8 @@ solo es la representacion compacta por red.
 | 15 | `combat.metrics` |
 | 16 | `hud.visualOverlay` |
 | 17 | `pvp.travel` |
+| 18 | `group.performanceState.provider` |
+| 19 | `group.performanceState.consumer` |
 
 ## Contrato Actual En Ejecucion
 
@@ -160,3 +192,14 @@ estados normales y evitar avisos no solicitados en chat.
 La implementación usa únicamente las fábricas públicas de campos de
 LibGroupBroadcast. El protocolo y el evento de solicitud usan los IDs numéricos
 reservados en el registro oficial.
+
+Métodos públicos productores de `family.groupPresence`:
+
+- `PublishActivityState(state)`
+- `PublishPerformanceState(state)`
+
+Ayudas públicas para consumidores:
+
+- `GetRemotePeer(unitTag)`
+- `GetRemotePeers()`
+- `GetPeerPerformanceState(unitTag)`
