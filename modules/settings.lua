@@ -2,7 +2,7 @@ local EZOCore = EZOCore
 
 -- Central settings service for the EZO family.
 -- It owns a native Settings > EZO entry and lets EZO addons register their
--- existing LibAddonMenu option tables without appearing as separate LAM panels.
+-- existing LibAddonMenu panels under a shared hub.
 
 local SETTINGS = {}
 EZOCore.Settings = SETTINGS
@@ -12,14 +12,17 @@ local SERVICE_NAME = "family.settings"
 local SERVICE_API_VERSION = 1
 local CORE_ADDON_NAME = "EZOCore"
 local MANAGER_PANEL_ID = "__ezo_installed_addons"
+local HUB_PANEL_ID = "EZOCore_EZO_Panel"
 local WINDOW_NAME = "EZOCoreSettingsWindow"
 
 local panelsById = {}
 local panelOrder = {}
+local hubOptions = {}
 local ui
 local panelId
 local selectedPanelId
 local createdSettingsPanel = false
+local createdLamHubPanel = false
 local controlCounter = 0
 
 SETTINGS.reloadRequired = false
@@ -40,6 +43,11 @@ local STRINGS = {
         disabled = "Disabled",
         folder = "Folder: %s",
         state = "State: %s",
+        hubDescription = "Central access point for EZO family addon settings.",
+        addonSettings = "Addon settings",
+        openAddonSettings = "Open settings",
+        openAddonSettingsTooltip = "Open the normal LibAddonMenu panel for %s.",
+        panelUnavailable = "Settings panel is not available yet: %s",
     },
     es = {
         installedAddons = "Addons EZO instalados",
@@ -57,6 +65,11 @@ local STRINGS = {
         disabled = "Desactivado",
         folder = "Carpeta: %s",
         state = "Estado: %s",
+        hubDescription = "Acceso central a la configuracion de los addons de la familia EZO.",
+        addonSettings = "Configuracion de addons",
+        openAddonSettings = "Abrir opciones",
+        openAddonSettingsTooltip = "Abre el panel normal de LibAddonMenu para %s.",
+        panelUnavailable = "El panel de configuracion todavia no esta disponible: %s",
     },
 }
 
@@ -429,6 +442,107 @@ local function BuildManagerEntry()
     }
 end
 
+local function GetLamPanel(entry)
+    if not entry then
+        return nil
+    end
+    if entry.lamPanel then
+        return entry.lamPanel
+    end
+    if IsNonEmptyString(entry.panelId) and _G then
+        return _G[entry.panelId]
+    end
+    return nil
+end
+
+local function OpenLamPanel(entry)
+    local LAM = GetLam()
+    local panel = GetLamPanel(entry)
+    if LAM and panel and type(LAM.OpenToPanel) == "function" then
+        LAM:OpenToPanel(panel)
+        return true
+    end
+
+    EZOCore:Warn(T("panelUnavailable", entry and entry.addonId or "?"))
+    return false
+end
+
+local function RebuildHubOptions()
+    for key in pairs(hubOptions) do
+        hubOptions[key] = nil
+    end
+
+    hubOptions[#hubOptions + 1] = {
+        type = "description",
+        text = T("hubDescription"),
+    }
+
+    local addonControls = {}
+    SortPanels()
+    for _, addonId in ipairs(panelOrder) do
+        local entry = panelsById[addonId]
+        if entry then
+            local panelData = entry.panelData or {}
+            local displayName = StripMarkup(panelData.displayName or panelData.name or entry.addonId)
+            addonControls[#addonControls + 1] = {
+                type = "button",
+                name = displayName,
+                tooltip = T("openAddonSettingsTooltip", displayName),
+                func = function()
+                    OpenLamPanel(entry)
+                end,
+                width = "full",
+            }
+        end
+    end
+
+    if #addonControls == 0 then
+        addonControls[#addonControls + 1] = {
+            type = "description",
+            text = T("noOptions"),
+        }
+    end
+
+    hubOptions[#hubOptions + 1] = {
+        type = "submenu",
+        name = T("addonSettings"),
+        controls = addonControls,
+    }
+
+    hubOptions[#hubOptions + 1] = {
+        type = "submenu",
+        name = T("installedAddons"),
+        tooltip = T("installedAddonsTooltip"),
+        controls = BuildInstalledAddonsOptions(),
+    }
+end
+
+local function RegisterLamHubPanel()
+    if createdLamHubPanel then
+        return true
+    end
+
+    local LAM = GetLam()
+    if not LAM
+        or type(LAM.RegisterAddonPanel) ~= "function"
+        or type(LAM.RegisterOptionControls) ~= "function" then
+        return false
+    end
+
+    RebuildHubOptions()
+    SETTINGS.lamPanel = LAM:RegisterAddonPanel(HUB_PANEL_ID, {
+        type = "panel",
+        name = PANEL_NAME,
+        displayName = PANEL_NAME,
+        author = "@Zuriplayer",
+        version = EZOCore.version,
+        registerForRefresh = true,
+    })
+    LAM:RegisterOptionControls(HUB_PANEL_ID, hubOptions)
+    createdLamHubPanel = SETTINGS.lamPanel ~= nil
+    return createdLamHubPanel
+end
+
 local function GetEntry(addonId)
     if addonId == MANAGER_PANEL_ID then
         return BuildManagerEntry()
@@ -654,27 +768,25 @@ local function RegisterNativeSettingsPanel()
     if not KEYBOARD_OPTIONS or type(ZO_GameMenu_AddSettingPanel) ~= "function" then
         return false
     end
-    if not CreateSettingsWindow() then
-        return false
-    end
 
     panelId = KEYBOARD_OPTIONS.currentPanelId
     local nativePanelData = {
         id = panelId,
         name = PANEL_NAME,
         callback = function()
-            if ui and ui.fragment and SCENE_MANAGER then
-                SCENE_MANAGER:AddFragment(ui.fragment)
+            if SETTINGS:OpenLamHub() then
+                return
             end
-            if ui and ui.root then
-                ui.root:SetHidden(false)
+
+            if CreateSettingsWindow() then
+                if ui and ui.fragment and SCENE_MANAGER then
+                    SCENE_MANAGER:AddFragment(ui.fragment)
+                end
+                if ui and ui.root then
+                    ui.root:SetHidden(false)
+                end
+                RenderSelectedPanel()
             end
-            if KEYBOARD_OPTIONS and type(KEYBOARD_OPTIONS.ChangePanels) == "function" then
-                pcall(function()
-                    KEYBOARD_OPTIONS:ChangePanels(panelId)
-                end)
-            end
-            RenderSelectedPanel()
         end,
         unselectedCallback = function()
             if ui and ui.fragment and SCENE_MANAGER then
@@ -695,7 +807,7 @@ local function RegisterNativeSettingsPanel()
     return true
 end
 
-function SETTINGS.RegisterSettingsPanel(_, addonId, addonPanelId, panelData, options)
+function SETTINGS.RegisterSettingsPanel(_, addonId, addonPanelId, panelData, options, lamPanel)
     local normalizedId = NormalizeId(addonId)
     if not normalizedId then
         EZOCore:Warn("RegisterSettingsPanel: addonId must be a stable non-empty id")
@@ -727,10 +839,12 @@ function SETTINGS.RegisterSettingsPanel(_, addonId, addonPanelId, panelData, opt
         panelId = addonPanelId,
         panelData = panelData,
         options = options,
+        lamPanel = lamPanel,
         sortName = string.lower(StripMarkup(panelData.displayName or panelData.name or normalizedId)),
     }
 
     SortPanels()
+    RebuildHubOptions()
     if ui then
         RebuildMenuList()
     end
@@ -766,6 +880,18 @@ function SETTINGS.OpenSettingsPanel(_, addonId)
     return true
 end
 
+function SETTINGS.OpenLamHub()
+    if not RegisterLamHubPanel() then
+        return false
+    end
+    local LAM = GetLam()
+    if LAM and SETTINGS.lamPanel and type(LAM.OpenToPanel) == "function" then
+        LAM:OpenToPanel(SETTINGS.lamPanel)
+        return true
+    end
+    return false
+end
+
 function SETTINGS.RefreshCurrentPanel()
     if ui then
         RenderSelectedPanel()
@@ -774,7 +900,7 @@ end
 
 function SETTINGS.Open()
     if not RegisterNativeSettingsPanel() then
-        return false
+        return SETTINGS:OpenLamHub()
     end
 
     local function SelectWhenReady()
@@ -792,12 +918,13 @@ function SETTINGS.Open()
 end
 
 function SETTINGS.Initialize()
+    RegisterLamHubPanel()
     RegisterNativeSettingsPanel()
     return true
 end
 
-function EZOCore.RegisterSettingsPanel(_, addonId, addonPanelId, panelData, options)
-    return SETTINGS:RegisterSettingsPanel(addonId, addonPanelId, panelData, options)
+function EZOCore.RegisterSettingsPanel(_, addonId, addonPanelId, panelData, options, lamPanel)
+    return SETTINGS:RegisterSettingsPanel(addonId, addonPanelId, panelData, options, lamPanel)
 end
 
 function EZOCore.GetSettingsPanels()

@@ -94,8 +94,8 @@ end
 
 ## Register Settings
 
-Addons with LibAddonMenu option tables should register them in EZOCore when it
-is available and fall back to their own LAM panel otherwise:
+Addons with LibAddonMenu option tables should keep their normal LAM panel and
+register that panel with EZOCore when it is available:
 
 ```lua
 local panelData = {
@@ -109,15 +109,19 @@ local panelData = {
 
 local options = BuildOptions()
 
-if EZOCore and type(EZOCore.RegisterSettingsPanel) == "function" then
-    EZOCore:RegisterSettingsPanel("ezotools", "EZOTools_Panel", panelData, options)
-elseif LibAddonMenu2 then
-    LibAddonMenu2:RegisterAddonPanel("EZOTools_Panel", panelData)
+local lamPanel
+if LibAddonMenu2 then
+    lamPanel = LibAddonMenu2:RegisterAddonPanel("EZOTools_Panel", panelData)
     LibAddonMenu2:RegisterOptionControls("EZOTools_Panel", options)
+end
+
+if EZOCore and type(EZOCore.RegisterSettingsPanel) == "function" then
+    EZOCore:RegisterSettingsPanel("ezotools", "EZOTools_Panel", panelData, options, lamPanel)
 end
 ```
 
-This prevents duplicated entries once an addon migrates to `Settings > EZO`.
+This lets the central `Settings > EZO` hub open the proven LAM panel instead
+of reimplementing every widget inside a custom native settings window.
 
 ## Local Callbacks
 

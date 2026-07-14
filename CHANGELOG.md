@@ -16,6 +16,7 @@ All notable changes to EZOCore are documented in this file.
 
 - Renders registered LibAddonMenu panels through a full LAM-compatible host in `Settings > EZO`.
 - Keeps the native `Settings > EZO` entry visible even if ESO's keyboard options panel switch rejects the custom panel id.
+- Opens a LibAddonMenu-backed central `EZO` hub from the native `Settings > EZO` entry, avoiding the empty custom panel path.
 
 ## [0.1.0] - 2026-07-13
 
