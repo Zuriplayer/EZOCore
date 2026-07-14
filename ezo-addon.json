@@ -5,8 +5,8 @@
     "name": "EZOCore",
     "version": "0.1.0",
     "status": "beta",
-    "phase": "local-service-preview",
-    "visibility": "private",
+    "phase": "public-beta",
+    "visibility": "public",
     "manifest": "EZOCore.txt",
     "package": {
       "rootFolderName": "EZOCore",

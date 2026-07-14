@@ -6,6 +6,7 @@ All notable changes to EZOCore are documented in this file.
 
 ### Added
 
+- Public beta repository metadata and README wording while keeping the implemented scope local-only.
 - Consumer integration docs in English and Spanish for local registry, capabilities, services, callbacks and `Settings > EZO`.
 - Repo-level `luacheck` configuration for ESO/EZOCore globals.
 - Central `Settings > EZO` service and native settings entry for EZO-family addon panels.

@@ -6,12 +6,13 @@ Capa de servicios locales para addons de EZO en *The Elder Scrolls Online*: regi
 
 ## Fase actual
 
-EZOCore está actualmente en una fase de **vista previa de servicio solo local**:
+EZOCore está actualmente en **beta pública** dentro de una fase de vista previa de servicio solo local:
 
 - Expone una pequeña API local de registro/servicio/callbacks que funciona por completo dentro de un único cliente de ESO.
 - Es propietario del menú central `Settings > EZO` para la configuración de los addons de la familia EZO.
 - Todavía no hay sincronización de grupo, no se usa LibGroupBroadcast y no hay comunicación entre jugadores.
 - No hay automatización remota disparada desde dentro del juego; los GitHub Actions de este repositorio son workflows manuales, disparados por el desarrollador, para empaquetar y publicar el estado en Discord.
+- Beta pública significa que el repositorio está visible para revisión/pruebas, pero el conjunto implementado sigue limitado intencionadamente a servicios locales.
 
 ## ¿Este addon hace algo por sí solo?
 
