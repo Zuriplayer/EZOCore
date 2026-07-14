@@ -17,7 +17,7 @@ Registro oficial: https://wiki.esoui.com/LibGroupBroadcast_IDs
 | Autor | @Zuriplayer |
 | Nombre de protocolo | `EZO_CORE_GROUP_V1` |
 | Protocol ID | `513` |
-| Descripcion | Presencia de grupo de la familia EZO y pequenos mensajes informativos de estado de actividad. |
+| Descripcion | Presencia de grupo de la familia EZO y estado informativo compacto de grupo, incluyendo actividad y estado opcional de rendimiento. |
 | Nombre de custom event | `EZO_CORE_GROUP_REQUEST_V1` |
 | Custom event ID | `3` |
 | Descripcion del custom event | Solicita resincronizacion de presencia/estado EZO a miembros compatibles del grupo. |
@@ -33,6 +33,11 @@ VariantField:
   presence
   activityState
 ```
+
+La descripcion del registro deja espacio para estado opcional de rendimiento.
+Debe añadirse mas adelante como variante `performanceState` cuando esten
+implementados su contrato de campos, el opt-in en LAM y las reglas de
+limitacion de envio. La build actual define solo `presence` y `activityState`.
 
 ### `presence`
 

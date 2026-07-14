@@ -17,7 +17,7 @@ Official registry: https://wiki.esoui.com/LibGroupBroadcast_IDs
 | Author | @Zuriplayer |
 | Protocol name | `EZO_CORE_GROUP_V1` |
 | Protocol ID | `513` |
-| Description | EZO family group presence and small informational activity state messages. |
+| Description | EZO family group presence and compact informational group state, including activity and optional performance status. |
 | Custom event name | `EZO_CORE_GROUP_REQUEST_V1` |
 | Custom event ID | `3` |
 | Custom event description | Requests an EZO group presence/state resync from compatible group members. |
@@ -33,6 +33,11 @@ VariantField:
   presence
   activityState
 ```
+
+The registry description leaves room for optional performance status. That
+should be added later as a `performanceState` variant after its field contract,
+LAM opt-in and throttling rules are implemented. The current build defines only
+`presence` and `activityState`.
 
 ### `presence`
 
