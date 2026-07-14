@@ -6,6 +6,8 @@ All notable changes to EZOCore are documented in this file.
 
 ### Added
 
+- Consumer integration docs in English and Spanish for local registry, capabilities, services, callbacks and `Settings > EZO`.
+- Repo-level `luacheck` configuration for ESO/EZOCore globals.
 - Central `Settings > EZO` service and native settings entry for EZO-family addon panels.
 - `EZOCore:RegisterSettingsPanel`, `EZOCore:GetSettingsPanels`, `EZOCore:OpenSettingsPanel`, `EZOCore:RefreshSettingsPanel`, and `EZOCore:OpenSettings`.
 - Installed EZO addon status view with enable/disable controls, excluding EZOCore itself.

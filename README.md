@@ -39,6 +39,11 @@ All of the above run locally in memory. Nothing is persisted to SavedVariables a
 
 Addons should register with stable lowercase EZO ids, visible version, numeric `AddOnVersion`, local API version and capabilities. EZOCore rejects invalid metadata without breaking the caller.
 
+Consumer integration examples live in [docs/consumer-integration.md](docs/consumer-integration.md). The current implemented services are:
+
+- `family.settings` API v1: central `Settings > EZO` registration and installed-addon status view.
+- local addon/capability registry: local-only discovery for consumers such as EZOTools.
+
 ## Requirements
 
 - The Elder Scrolls Online (PC)
