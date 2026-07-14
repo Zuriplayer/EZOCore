@@ -4,10 +4,11 @@
 ## Version: 0.1.0
 ## AddOnVersion: 100
 ## APIVersion: 101049 101050
-## OptionalDependsOn: LibDebugLogger DebugLogViewer
+## OptionalDependsOn: LibDebugLogger DebugLogViewer LibAddonMenu-2.0
 
 EZOCore.lua
 modules/debug.lua
 modules/registry.lua
 modules/callbacks.lua
+modules/settings.lua
 modules/core.lua

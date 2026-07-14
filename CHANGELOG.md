@@ -2,6 +2,14 @@
 
 All notable changes to EZOCore are documented in this file.
 
+## Unreleased
+
+### Added
+
+- Central `Settings > EZO` service and native settings entry for EZO-family addon panels.
+- `EZOCore:RegisterSettingsPanel`, `EZOCore:GetSettingsPanels`, `EZOCore:OpenSettingsPanel`, `EZOCore:RefreshSettingsPanel`, and `EZOCore:OpenSettings`.
+- Installed EZO addon status view with enable/disable controls, excluding EZOCore itself.
+
 ## [0.1.0] - 2026-07-13
 
 ### Added

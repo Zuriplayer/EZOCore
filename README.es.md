@@ -9,6 +9,7 @@ Capa de servicios locales para addons de EZO en *The Elder Scrolls Online*: regi
 EZOCore está actualmente en una fase de **vista previa de servicio solo local**:
 
 - Expone una pequeña API local de registro/servicio/callbacks que funciona por completo dentro de un único cliente de ESO.
+- Es propietario del menú central `Settings > EZO` para la configuración de los addons de la familia EZO.
 - Todavía no hay sincronización de grupo, no se usa LibGroupBroadcast y no hay comunicación entre jugadores.
 - No hay automatización remota disparada desde dentro del juego; los GitHub Actions de este repositorio son workflows manuales, disparados por el desarrollador, para empaquetar y publicar el estado en Discord.
 
@@ -25,6 +26,11 @@ No demasiado por sí mismo. EZOCore está pensado como una dependencia opcional 
 - `EZOCore:HasCapability(addonId, capability, minimumApiVersion)`
 - `EZOCore:RegisterService(name, apiVersion, service)`
 - `EZOCore:GetService(name, minimumApiVersion)`
+- `EZOCore:RegisterSettingsPanel(addonId, panelId, panelData, options)`
+- `EZOCore:GetSettingsPanels()`
+- `EZOCore:OpenSettingsPanel(addonId)`
+- `EZOCore:RefreshSettingsPanel()`
+- `EZOCore:OpenSettings()`
 - `EZOCore:RegisterCallback(eventName, callback)`
 - `EZOCore:UnregisterCallback(eventName, callback)`
 - `EZOCore:FireCallback(eventName, ...)`
@@ -37,6 +43,7 @@ Los addons deben registrarse con IDs EZO estables en minúsculas, versión visib
 
 - The Elder Scrolls Online (PC)
 - Opcional: LibDebugLogger, DebugLogViewer (para diagnóstico; EZOCore se degrada sin romperse si no están)
+- Opcional: LibAddonMenu-2.0 (para dibujar controles de opciones registrados en `Settings > EZO`)
 
 ## Instalación
 
@@ -50,7 +57,7 @@ Fases futuras podrían añadir presencia y mensajería entre jugadores mediante 
 
 ## Soporte
 
-📢 Para soporte, feedback, reportar bugs o sugerencias, únete a nuestro Discord: https://discord.gg/hsc9AHC5Cr
+📢 Para soporte, feedback, reportar bugs o sugerencias, únete a nuestro Discord: https://discord.gg/ekw8zUAcRm
 
 ## Licencia
 

@@ -9,6 +9,7 @@ Local service layer for EZO addons in *The Elder Scrolls Online*: addon registry
 EZOCore is currently in a **local-only service preview** phase:
 
 - It exposes a small local registry/service/callback API that runs entirely inside a single ESO client.
+- It owns a central `Settings > EZO` menu for EZO-family addon settings.
 - There is no group sync, no LibGroupBroadcast usage, and no communication between players yet.
 - There is no remote automation triggered from inside the game; the GitHub Actions in this repo are manual, developer-triggered workflows for packaging and Discord status updates.
 
@@ -25,6 +26,11 @@ Not much on its own. EZOCore is meant to be an optional shared dependency for ot
 - `EZOCore:HasCapability(addonId, capability, minimumApiVersion)`
 - `EZOCore:RegisterService(name, apiVersion, service)`
 - `EZOCore:GetService(name, minimumApiVersion)`
+- `EZOCore:RegisterSettingsPanel(addonId, panelId, panelData, options)`
+- `EZOCore:GetSettingsPanels()`
+- `EZOCore:OpenSettingsPanel(addonId)`
+- `EZOCore:RefreshSettingsPanel()`
+- `EZOCore:OpenSettings()`
 - `EZOCore:RegisterCallback(eventName, callback)`
 - `EZOCore:UnregisterCallback(eventName, callback)`
 - `EZOCore:FireCallback(eventName, ...)`
@@ -37,6 +43,7 @@ Addons should register with stable lowercase EZO ids, visible version, numeric `
 
 - The Elder Scrolls Online (PC)
 - Optional: LibDebugLogger, DebugLogViewer (for diagnostics; EZOCore degrades gracefully without them)
+- Optional: LibAddonMenu-2.0 (for rendering registered addon option controls in `Settings > EZO`)
 
 ## Installation
 
@@ -50,7 +57,7 @@ Future phases may add cross-player presence and messaging through LibGroupBroadc
 
 ## Support
 
-📢 For support, feedback, bug reports or suggestions, join our Discord: https://discord.gg/hsc9AHC5Cr
+📢 For support, feedback, bug reports or suggestions, join our Discord: https://discord.gg/ekw8zUAcRm
 
 ## License
 

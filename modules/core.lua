@@ -18,8 +18,13 @@ local function OnAddOnLoaded(_, addonName)
         apiVersion = EZOCore.apiVersion,
         capabilities = {
             "family.presence",
+            "family.settings",
         },
     })
+
+    if EZOCore.InitializeSettings then
+        EZOCore.InitializeSettings()
+    end
 
     EZOCore:Info("%s v%s initialized (local service phase).", EZOCore.name, EZOCore.version)
     EZOCore:FireCallback(EZOCore.EVENT_INITIALIZED, EZOCore)
