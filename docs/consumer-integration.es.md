@@ -66,6 +66,23 @@ end
 `HasCapability(addonId, capability, minimumApiVersion)` comprueba registro,
 compatibilidad de API y una capacidad concreta.
 
+## Consultar Presencia Local
+
+El servicio `family.presence` expone los mismos datos de registro local mediante
+una fachada de servicio sobre la que se podra construir la presencia remota
+posterior:
+
+```lua
+local presence = EZOCore and EZOCore:GetService("family.presence", 1)
+if presence and presence:HasLocalCapability("ezotools", "group.activities", 1) then
+    local ezotools = presence:GetLocalAddon("ezotools")
+    -- Inspeccionar ezotools.version, ezotools.addOnVersion, ezotools.capabilities.
+end
+```
+
+`GetLocalAddons()` devuelve solo el cliente actual. No implica nada sobre los
+miembros del grupo y no envia trafico por LibGroupBroadcast.
+
 ## Registrar Un Servicio
 
 Los servicios son tablas locales explicitas. EZOCore no ejecuta funciones por

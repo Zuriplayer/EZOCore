@@ -4,6 +4,10 @@ All notable changes to EZOCore are documented in this file.
 
 ## Unreleased
 
+### Added
+
+- Local `family.presence` service facade for registered EZO addons, versions and capabilities.
+
 ## [0.1.2] - 2026-07-14
 
 ### Added

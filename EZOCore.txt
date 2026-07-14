@@ -10,6 +10,7 @@
 EZOCore.lua
 modules/debug.lua
 modules/registry.lua
+modules/presence.lua
 modules/callbacks.lua
 modules/language.lua
 modules/settings.lua

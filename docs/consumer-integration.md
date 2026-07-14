@@ -67,6 +67,22 @@ end
 `HasCapability(addonId, capability, minimumApiVersion)` checks registration,
 API compatibility and a concrete capability.
 
+## Query Local Presence
+
+The `family.presence` service exposes the same local registration data through
+a service facade that future remote presence work can build on:
+
+```lua
+local presence = EZOCore and EZOCore:GetService("family.presence", 1)
+if presence and presence:HasLocalCapability("ezotools", "group.activities", 1) then
+    local ezotools = presence:GetLocalAddon("ezotools")
+    -- Inspect ezotools.version, ezotools.addOnVersion, ezotools.capabilities.
+end
+```
+
+`GetLocalAddons()` returns the current client only. It does not imply anything
+about group members and does not send LibGroupBroadcast traffic.
+
 ## Register A Service
 
 Services are explicit local tables. EZOCore does not execute functions by name.

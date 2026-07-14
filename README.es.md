@@ -58,6 +58,7 @@ Los addons deben registrarse con IDs EZO estables en minúsculas, versión visib
 Los ejemplos de integración para consumidores viven en [docs/consumer-integration.es.md](docs/consumer-integration.es.md). Los servicios implementados ahora son:
 
 - `family.settings` API v1: registro central en `Settings > EZO`, navegación y controles de carga de addons instalados.
+- `family.presence` API v1: fachada local de presencia sobre addons EZO registrados, versiones y capacidades.
 - `family.language` API v1: preferencia local de idioma compartida para addons de la familia EZO.
 - registro local de addons/capacidades: descubrimiento solo local para consumidores como EZOTools.
 
