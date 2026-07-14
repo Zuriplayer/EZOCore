@@ -100,6 +100,11 @@ end
 Current builds report `protocolDefinitionPending` and do not send data. Do not
 show unsolicited warnings for that state.
 
+The reserved-ID draft and wire format are documented in
+[group-presence-protocol.md](group-presence-protocol.md). The intended protocol
+name is `EZO_CORE_GROUP_V1` and the intended resync custom event name is
+`EZO_CORE_GROUP_REQUEST_V1`.
+
 ## Use Shared Diagnostics
 
 The `family.debug` service centralizes optional LibDebugLogger access without

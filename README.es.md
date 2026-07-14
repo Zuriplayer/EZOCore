@@ -12,7 +12,7 @@ EZOCore está actualmente en **beta pública** dentro de una fase de vista previ
 - Es propietario del menú central `Settings > EZO` para la configuración de los addons de la familia EZO, con cabeceras informativas estándar de EZO.
 - Proporciona un modo de idioma común para la familia EZO: automático, inglés, español o "dejar que cada addon elija"; los addons independientes conservan su fallback propio cuando EZOCore no está instalado o el modo central permite opciones locales.
 - Coordina modos temporales de movimiento global e individual para los addons EZO que registran superficies HUD compatibles; las previsualizaciones permanecen ocultas en Settings y aparecen al volver al HUD principal.
-- Todavía no hay sincronización de grupo activa ni comunicación entre jugadores. EZOCore puede detectar LibGroupBroadcast y exponer un servicio `family.groupPresence` desactivado, pero el envío queda bloqueado hasta reservar IDs oficiales de protocolo y cerrar el formato compacto.
+- Todavía no hay sincronización de grupo activa ni comunicación entre jugadores. EZOCore puede detectar LibGroupBroadcast y exponer un servicio `family.groupPresence` desactivado. El formato previsto está documentado en [docs/group-presence-protocol.es.md](docs/group-presence-protocol.es.md), pero el envío queda bloqueado hasta reservar IDs oficiales.
 - No hay automatización remota disparada desde dentro del juego; los GitHub Actions de este repositorio son workflows manuales, disparados por el desarrollador, para empaquetar y publicar el estado en Discord.
 - Beta pública significa que el repositorio está visible para revisión/pruebas, pero el conjunto implementado sigue limitado intencionadamente a servicios locales.
 
@@ -62,7 +62,7 @@ Los ejemplos de integración para consumidores viven en [docs/consumer-integrati
 
 - `family.settings` API v1: registro central en `Settings > EZO`, navegación y controles de carga de addons instalados.
 - `family.presence` API v1: fachada local de presencia sobre addons EZO registrados, versiones y capacidades.
-- `family.groupPresence` API v1: fachada de presencia remota entre peers, actualmente desactivada hasta reservar IDs de LibGroupBroadcast y finalizar el protocolo compacto.
+- `family.groupPresence` API v1: fachada de presencia remota entre peers, actualmente desactivada hasta reservar IDs de LibGroupBroadcast para `EZO_CORE_GROUP_V1`.
 - `family.language` API v1: preferencia local de idioma compartida para addons de la familia EZO.
 - `family.debug` API v1: acceso común opcional a LibDebugLogger y DebugLogViewer, sin fallback al chat ni trabajo en ejecución cuando el backend no está disponible.
 - `family.layout` API v1: registro de sesión y coordinación global e individual del movimiento para superficies HUD EZO compatibles.

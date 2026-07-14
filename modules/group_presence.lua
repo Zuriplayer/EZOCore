@@ -1,6 +1,6 @@
 local EZOCore = EZOCore
 
--- Remote/group presence state for future LibGroupBroadcast transport.
+-- Remote/group state for future LibGroupBroadcast transport.
 -- The transport stays disabled until EZO reserves official LibGroupBroadcast IDs.
 
 local GROUP_PRESENCE = {}
@@ -17,9 +17,55 @@ local PEER_TTL_SECONDS = 90
 local LGB_HANDLER_NAME = "EZOCore"
 local LGB_PROTOCOL_READY = false
 local LGB_PROTOCOL_ID = nil
-local LGB_PROTOCOL_NAME = "EZO_CORE_PRESENCE_V1"
+local LGB_PROTOCOL_NAME = "EZO_CORE_GROUP_V1"
 local LGB_REQUEST_EVENT_ID = nil
-local LGB_REQUEST_EVENT_NAME = "EZO_CORE_PRESENCE_REQUEST_V1"
+local LGB_REQUEST_EVENT_NAME = "EZO_CORE_GROUP_REQUEST_V1"
+
+local WIRE_MESSAGE_TYPES = {
+    presence = 1,
+    activityState = 2,
+}
+
+local WIRE_ACTIVITY_TYPES = {
+    unknown = 0,
+    trial = 1,
+    dungeon = 2,
+    arena = 3,
+}
+
+local WIRE_ACTIVITY_STAGES = {
+    idle = 0,
+    staging = 1,
+    returning = 2,
+    waitingMembers = 3,
+    complete = 4,
+    failed = 5,
+}
+
+local CAPABILITY_BITS = {
+    ["family.presence"] = 1,
+    ["family.groupPresence"] = 2,
+    ["family.language"] = 3,
+    ["family.language.consumer"] = 4,
+    ["family.settings.consumer"] = 5,
+    ["family.debug"] = 6,
+    ["family.layout"] = 7,
+    ["group.activities"] = 8,
+    ["group.activityState.provider"] = 9,
+    ["group.activityState.consumer"] = 10,
+    ["group.frames.visualHints"] = 11,
+    ["alerts.screen"] = 12,
+    ["alerts.groupChat"] = 13,
+    ["automation.groupInvites"] = 14,
+    ["combat.metrics"] = 15,
+    ["hud.visualOverlay"] = 16,
+    ["pvp.travel"] = 17,
+}
+
+local CAPABILITY_BY_BIT = {}
+for capability, bit in pairs(CAPABILITY_BITS) do
+    CAPABILITY_BY_BIT[bit] = capability
+end
 
 local peersByUnitTag = {}
 local sequence = 0
@@ -65,6 +111,7 @@ local function CopyAddon(addon)
         addOnVersion = addon.addOnVersion,
         apiVersion = addon.apiVersion,
         capabilities = CopyArray(addon.capabilities),
+        capabilityMask = tonumber(addon.capabilityMask) or 0,
     }
 end
 
@@ -107,6 +154,37 @@ local function BuildCapabilitySet(capabilities)
     return out
 end
 
+local function DecodeCapabilityMask(mask)
+    local capabilities = {}
+    mask = tonumber(mask) or 0
+    for bit = 1, 32 do
+        local capability = CAPABILITY_BY_BIT[bit]
+        local bitValue = 2 ^ (bit - 1)
+        if capability and math.floor(mask / bitValue) % 2 == 1 then
+            capabilities[#capabilities + 1] = capability
+        end
+    end
+    return capabilities
+end
+
+local function BuildCapabilityMask(capabilities)
+    local mask = 0
+    if type(capabilities) ~= "table" then
+        return mask
+    end
+
+    for index = 1, #capabilities do
+        local bit = CAPABILITY_BITS[capabilities[index]]
+        if bit then
+            local bitValue = 2 ^ (bit - 1)
+            if math.floor(mask / bitValue) % 2 == 0 then
+                mask = mask + bitValue
+            end
+        end
+    end
+    return mask
+end
+
 local function NormalizeRemoteAddons(addons)
     local out = {}
     if type(addons) ~= "table" then
@@ -116,6 +194,9 @@ local function NormalizeRemoteAddons(addons)
     for index = 1, #addons do
         local addon = CopyAddon(addons[index])
         if addon and type(addon.id) == "string" and addon.id ~= "" then
+            if type(addon.capabilities) ~= "table" and tonumber(addon.capabilityMask) then
+                addon.capabilities = DecodeCapabilityMask(addon.capabilityMask)
+            end
             addon.capabilitySet = BuildCapabilitySet(addon.capabilities)
             out[string.lower(addon.id)] = addon
         end
@@ -145,6 +226,66 @@ local function GetLibGroupBroadcast()
     return lgb
 end
 
+local function GetProtocolFieldClasses(lgb)
+    local class = lgb and lgb.internal and lgb.internal.class
+    if type(class) ~= "table" then
+        return nil
+    end
+
+    local required = {
+        "ArrayField",
+        "NumericField",
+        "StringField",
+        "TableField",
+        "VariantField",
+    }
+    for index = 1, #required do
+        if type(class[required[index]]) ~= "table" then
+            return nil
+        end
+    end
+    return class
+end
+
+local function AddGroupProtocolFields(targetProtocol, lgb)
+    local class = GetProtocolFieldClasses(lgb)
+    if not class then
+        return false
+    end
+
+    local addonRecord = class.TableField:New("addons", {
+        class.StringField:New("id", { minLength = 3, maxLength = 32 }),
+        class.StringField:New("version", { minLength = 1, maxLength = 16 }),
+        class.NumericField:New("addOnVersion", { minValue = 0, maxValue = 999999 }),
+        class.NumericField:New("apiVersion", { minValue = 0, maxValue = 255 }),
+        class.NumericField:New("capabilityMask", { numBits = 32 }),
+    })
+
+    targetProtocol:AddField(class.VariantField:New({
+        class.TableField:New("presence", {
+            class.NumericField:New("protocolVersion", { minValue = 1, maxValue = 15 }),
+            class.NumericField:New("sequence", { minValue = 0, maxValue = 65535 }),
+            class.NumericField:New("coreApiVersion", { minValue = 0, maxValue = 255 }),
+            class.StringField:New("coreVersion", { minLength = 1, maxLength = 16 }),
+            class.NumericField:New("coreAddOnVersion", { minValue = 0, maxValue = 999999 }),
+            class.NumericField:New("ttlSeconds", { minValue = 15, maxValue = 300 }),
+            class.ArrayField:New(addonRecord, { minLength = 0, maxLength = 16 }),
+        }),
+        class.TableField:New("activityState", {
+            class.NumericField:New("protocolVersion", { minValue = 1, maxValue = 15 }),
+            class.NumericField:New("sequence", { minValue = 0, maxValue = 65535 }),
+            class.NumericField:New("sourceAddonKey", { minValue = 0, maxValue = 255 }),
+            class.NumericField:New("activityType", { minValue = 0, maxValue = 15 }),
+            class.NumericField:New("stage", { minValue = 0, maxValue = 31 }),
+            class.NumericField:New("result", { minValue = 0, maxValue = 31 }),
+            class.NumericField:New("sessionId", { minValue = 0, maxValue = 4294967295 }),
+            class.NumericField:New("ttlSeconds", { minValue = 15, maxValue = 300 }),
+            class.StringField:New("targetKey", { minLength = 0, maxLength = 32 }),
+        }),
+    }, { maxNumVariants = 8 }))
+    return true
+end
+
 local function RefreshStatus()
     local lgb = GetLibGroupBroadcast()
     status.available = lgb ~= nil
@@ -170,16 +311,27 @@ local function GetLocalPresencePayload()
     sequence = (sequence % 65535) + 1
     local presence = EZOCore.Presence
     local addons = presence and presence.GetLocalAddons and presence.GetLocalAddons() or {}
+    local wireAddons = {}
+    for index = 1, #addons do
+        local addon = addons[index]
+        wireAddons[#wireAddons + 1] = {
+            id = tostring(addon.id or ""),
+            version = tostring(addon.version or ""),
+            addOnVersion = tonumber(addon.addOnVersion) or 0,
+            apiVersion = tonumber(addon.apiVersion) or 0,
+            capabilityMask = BuildCapabilityMask(addon.capabilities),
+        }
+    end
 
-    return {
+    return { presence = {
         coreApiVersion = EZOCore.apiVersion,
         coreVersion = EZOCore.version,
         coreAddOnVersion = EZOCore.addOnVersion,
         protocolVersion = PRESENCE_PROTOCOL_VERSION,
         sequence = sequence,
         ttlSeconds = PEER_TTL_SECONDS,
-        addons = addons,
-    }
+        addons = wireAddons,
+    } }
 end
 
 local function HandleRemotePresence(unitTag, data)
@@ -213,6 +365,21 @@ local function HandleRemotePresence(unitTag, data)
     return true
 end
 
+local function HandleRemoteGroupMessage(unitTag, data)
+    if type(data) ~= "table" then
+        return false
+    end
+    if type(data.presence) == "table" then
+        return HandleRemotePresence(unitTag, data.presence)
+    end
+    if type(data.activityState) == "table" then
+        EZOCore:FireCallback("EZO_CORE_GROUP_ACTIVITY_STATE_UPDATED", unitTag, data.activityState)
+        EZOCore:FireCallback("EZOCore:GroupActivityStateUpdated", unitTag, data.activityState)
+        return true
+    end
+    return false
+end
+
 local function RegisterLibGroupBroadcast()
     local lgb = GetLibGroupBroadcast()
     if not lgb then
@@ -228,9 +395,12 @@ local function RegisterLibGroupBroadcast()
     local ok = pcall(function()
         handler = lgb:RegisterHandler("EZOCore", LGB_HANDLER_NAME)
         handler:SetDisplayName("EZOCore")
-        handler:SetDescription("EZO family presence")
+        handler:SetDescription("EZO family group presence and informational state")
         protocol = handler:DeclareProtocol(LGB_PROTOCOL_ID, LGB_PROTOCOL_NAME)
-        protocol:OnData(HandleRemotePresence)
+        if not AddGroupProtocolFields(protocol, lgb) then
+            error("LibGroupBroadcast field classes unavailable")
+        end
+        protocol:OnData(HandleRemoteGroupMessage)
         protocol:Finalize({ replaceQueuedMessages = true, isRelevantInCombat = false })
         firePresenceRequest = handler:DeclareCustomEvent(LGB_REQUEST_EVENT_ID, LGB_REQUEST_EVENT_NAME, {
             displayName = "EZOCore presence request",
@@ -272,6 +442,43 @@ function GROUP_PRESENCE.GetStatus()
         reason = status.reason,
         protocolVersion = PRESENCE_PROTOCOL_VERSION,
         ttlSeconds = PEER_TTL_SECONDS,
+        protocolName = LGB_PROTOCOL_NAME,
+        requestEventName = LGB_REQUEST_EVENT_NAME,
+    }
+end
+
+function GROUP_PRESENCE.GetProtocolSpec()
+    return {
+        serviceName = SERVICE_NAME,
+        serviceApiVersion = SERVICE_API_VERSION,
+        protocolVersion = PRESENCE_PROTOCOL_VERSION,
+        protocolName = LGB_PROTOCOL_NAME,
+        requestEventName = LGB_REQUEST_EVENT_NAME,
+        protocolReady = LGB_PROTOCOL_READY,
+        protocolId = LGB_PROTOCOL_ID,
+        requestEventId = LGB_REQUEST_EVENT_ID,
+        ttlSeconds = PEER_TTL_SECONDS,
+        messageTypes = {
+            presence = WIRE_MESSAGE_TYPES.presence,
+            activityState = WIRE_MESSAGE_TYPES.activityState,
+        },
+        activityTypes = WIRE_ACTIVITY_TYPES,
+        activityStages = WIRE_ACTIVITY_STAGES,
+        capabilityBits = CAPABILITY_BITS,
+    }
+end
+
+function GROUP_PRESENCE.GetReservationDraft()
+    return {
+        addon = "EZOCore",
+        author = "@Zuriplayer",
+        protocolName = LGB_PROTOCOL_NAME,
+        protocolId = "TBD",
+        protocolDescription = "EZO family group presence and small informational activity state messages.",
+        customEventName = LGB_REQUEST_EVENT_NAME,
+        customEventId = "TBD",
+        customEventDescription = "Requests an EZO group presence/state resync from compatible group members.",
+        status = "pending official LibGroupBroadcast ID reservation",
     }
 end
 
@@ -363,6 +570,10 @@ end
 
 function GROUP_PRESENCE._HandleRemotePresence(unitTag, data)
     return HandleRemotePresence(unitTag, data)
+end
+
+function GROUP_PRESENCE._HandleRemoteGroupMessage(unitTag, data)
+    return HandleRemoteGroupMessage(unitTag, data)
 end
 
 EZOCore:RegisterService(SERVICE_NAME, SERVICE_API_VERSION, GROUP_PRESENCE)

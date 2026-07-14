@@ -12,7 +12,7 @@ EZOCore is currently a **public beta** in a local-only service preview phase:
 - It owns a central `Settings > EZO` menu for EZO-family addon settings, using EZO-standard informational section headers.
 - It provides a shared EZO-family language mode: automatic, English, Spanish, or "let each addon choose"; standalone addons keep their own fallback when EZOCore is not installed or the central mode allows local choices.
 - It coordinates temporary global and per-window movement modes for EZO addons that register compatible HUD surfaces; previews remain hidden in Settings and appear after returning to the main HUD.
-- There is no active group sync and no communication between players yet. EZOCore can detect LibGroupBroadcast and expose a disabled `family.groupPresence` service, but sending stays blocked until official protocol IDs are reserved and the compact wire format is finalized.
+- There is no active group sync and no communication between players yet. EZOCore can detect LibGroupBroadcast and expose a disabled `family.groupPresence` service. The planned wire format is documented in [docs/group-presence-protocol.md](docs/group-presence-protocol.md), but sending stays blocked until official protocol IDs are reserved.
 - There is no remote automation triggered from inside the game; the GitHub Actions in this repo are manual, developer-triggered workflows for packaging and Discord status updates.
 - Public beta means the repository is visible for review/testing, but the implemented feature set is still intentionally limited to local services.
 
@@ -62,7 +62,7 @@ Consumer integration examples live in [docs/consumer-integration.md](docs/consum
 
 - `family.settings` API v1: central `Settings > EZO` registration, navigation and installed-addon load controls.
 - `family.presence` API v1: local presence facade over registered EZO addons, versions and capabilities.
-- `family.groupPresence` API v1: remote peer presence facade, currently disabled until LibGroupBroadcast IDs and the compact protocol are reserved/finalized.
+- `family.groupPresence` API v1: remote peer presence facade, currently disabled until LibGroupBroadcast IDs are reserved for `EZO_CORE_GROUP_V1`.
 - `family.language` API v1: shared local language preference for EZO-family addons.
 - `family.debug` API v1: optional shared LibDebugLogger and DebugLogViewer access with no chat fallback or runtime work when the backend is unavailable.
 - `family.layout` API v1: session-only registration plus global and individual movement coordination for compatible EZO HUD surfaces.

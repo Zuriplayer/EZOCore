@@ -100,6 +100,11 @@ end
 Las builds actuales devuelven `protocolDefinitionPending` y no envian datos. No
 se deben mostrar avisos no solicitados al jugador por ese estado.
 
+La ficha de reserva y el formato por red estan documentados en
+[group-presence-protocol.es.md](group-presence-protocol.es.md). El nombre de
+protocolo previsto es `EZO_CORE_GROUP_V1` y el custom event de resincronizacion
+previsto es `EZO_CORE_GROUP_REQUEST_V1`.
+
 ## Usar Diagnostico Comun
 
 El servicio `family.debug` centraliza el acceso opcional a LibDebugLogger sin

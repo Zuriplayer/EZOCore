@@ -4,6 +4,13 @@ All notable changes to EZOCore are documented in this file.
 
 ## Unreleased
 
+## [0.1.10] - 2026-07-15
+
+### Added
+
+- Reserved-ID preparation docs and inactive wire-format scaffold for
+  `EZO_CORE_GROUP_V1` / `EZO_CORE_GROUP_REQUEST_V1`.
+
 ## [0.1.9] - 2026-07-15
 
 ### Added
