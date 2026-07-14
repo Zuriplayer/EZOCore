@@ -277,6 +277,8 @@ local function CreateOptionControls(parent, options)
         return
     end
 
+    parent._ezoCreatedControls = parent._ezoCreatedControls or {}
+
     local lastControl
     for index = 1, #options do
         local widgetData = options[index]
@@ -514,41 +516,43 @@ local function RenderSelectedPanel()
     local panelData = entry.panelData or {}
     ui.title:SetText(StripMarkup(panelData.displayName or panelData.name or PANEL_NAME))
 
-    controlCounter = controlCounter + 1
-    local info = CreateLabel(ui.optionChild, WINDOW_NAME .. "PanelInfo" .. controlCounter, "", "ZoFontGameSmall")
-    info:SetDimensions(645, 40)
-    info:SetColor(0.72, 0.72, 0.68, 1)
-    info:SetAnchor(TOPLEFT, ui.optionChild, TOPLEFT, 0, 0)
-
-    local infoParts = {}
-    if IsNonEmptyString(panelData.author) then
-        infoParts[#infoParts + 1] = tostring(panelData.author)
-    end
-    if IsNonEmptyString(panelData.version) then
-        infoParts[#infoParts + 1] = "v" .. tostring(panelData.version)
-    end
-    info:SetText(table.concat(infoParts, "  "))
-    ui.optionControls[#ui.optionControls + 1] = info
-
     local options = ResolveOptions(entry)
-    if GetLam() and LAMCreateControl and type(options) == "table" and #options > 0 then
-        local optionsHost = WINDOW_MANAGER:CreateControl(
-            WINDOW_NAME .. "OptionsHost" .. controlCounter,
+    if GetLam()
+        and type(LAMCreateControl) == "table"
+        and type(LAMCreateControl.panel) == "function"
+        and type(options) == "table"
+        and #options > 0 then
+        controlCounter = controlCounter + 1
+        local panelHost = LAMCreateControl.panel(
             ui.optionChild,
-            CT_CONTROL)
-        optionsHost:SetDimensions(645, 1)
-        optionsHost:SetResizeToFitDescendents(true)
-        optionsHost:SetAnchor(TOPLEFT, info, BOTTOMLEFT, 0, 15)
-        optionsHost.data = panelData
-        optionsHost.panel = optionsHost
-        optionsHost.controlsToRefresh = {}
-        optionsHost._ezoCreatedControls = ui.optionControls
-        ui.optionControls[#ui.optionControls + 1] = optionsHost
+            panelData,
+            WINDOW_NAME .. "LAMPanel" .. controlCounter)
+        panelHost:SetDimensions(645, 650)
+        panelHost:SetAnchor(TOPLEFT, ui.optionChild, TOPLEFT, 0, 0)
+        panelHost:SetHidden(false)
+        panelHost._ezoCreatedControls = ui.optionControls
+        ui.optionControls[#ui.optionControls + 1] = panelHost
 
-        CreateOptionControls(optionsHost, options)
-        FireLamCallback("LAM-PanelControlsCreated", optionsHost)
-        FireLamCallback("LAM-PanelOpened", optionsHost)
+        CreateOptionControls(panelHost, options)
+        FireLamCallback("LAM-PanelControlsCreated", panelHost)
+        FireLamCallback("LAM-PanelOpened", panelHost)
     else
+        controlCounter = controlCounter + 1
+        local info = CreateLabel(ui.optionChild, WINDOW_NAME .. "PanelInfo" .. controlCounter, "", "ZoFontGameSmall")
+        info:SetDimensions(645, 40)
+        info:SetColor(0.72, 0.72, 0.68, 1)
+        info:SetAnchor(TOPLEFT, ui.optionChild, TOPLEFT, 0, 0)
+
+        local infoParts = {}
+        if IsNonEmptyString(panelData.author) then
+            infoParts[#infoParts + 1] = tostring(panelData.author)
+        end
+        if IsNonEmptyString(panelData.version) then
+            infoParts[#infoParts + 1] = "v" .. tostring(panelData.version)
+        end
+        info:SetText(table.concat(infoParts, "  "))
+        ui.optionControls[#ui.optionControls + 1] = info
+
         local message = T("noOptions")
         if not GetLam() then
             message = T("noLam")
@@ -632,7 +636,7 @@ local function SelectSettingsNode()
         return
     end
 
-    local children = settingsMenu:GetChildren()
+    local children = { settingsMenu:GetChildren() }
     for index = 1, (children and #children or 0) do
         local child = children[index]
         local data = child:GetData()
@@ -662,14 +666,22 @@ local function RegisterNativeSettingsPanel()
             if ui and ui.fragment and SCENE_MANAGER then
                 SCENE_MANAGER:AddFragment(ui.fragment)
             end
+            if ui and ui.root then
+                ui.root:SetHidden(false)
+            end
             if KEYBOARD_OPTIONS and type(KEYBOARD_OPTIONS.ChangePanels) == "function" then
-                KEYBOARD_OPTIONS:ChangePanels(panelId)
+                pcall(function()
+                    KEYBOARD_OPTIONS:ChangePanels(panelId)
+                end)
             end
             RenderSelectedPanel()
         end,
         unselectedCallback = function()
             if ui and ui.fragment and SCENE_MANAGER then
                 SCENE_MANAGER:RemoveFragment(ui.fragment)
+            end
+            if ui and ui.root then
+                ui.root:SetHidden(true)
             end
         end,
     }

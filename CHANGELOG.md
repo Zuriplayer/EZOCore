@@ -12,6 +12,11 @@ All notable changes to EZOCore are documented in this file.
 - `EZOCore:RegisterSettingsPanel`, `EZOCore:GetSettingsPanels`, `EZOCore:OpenSettingsPanel`, `EZOCore:RefreshSettingsPanel`, and `EZOCore:OpenSettings`.
 - Installed EZO addon status view with enable/disable controls, excluding EZOCore itself.
 
+### Fixed
+
+- Renders registered LibAddonMenu panels through a full LAM-compatible host in `Settings > EZO`.
+- Keeps the native `Settings > EZO` entry visible even if ESO's keyboard options panel switch rejects the custom panel id.
+
 ## [0.1.0] - 2026-07-13
 
 ### Added
