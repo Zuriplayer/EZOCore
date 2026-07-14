@@ -4,6 +4,12 @@ All notable changes to EZOCore are documented in this file.
 
 ## Unreleased
 
+## [0.1.3] - 2026-07-14
+
+### Fixed
+
+- Loads the callback bus before presence services so service registration can fire callbacks without a startup error.
+
 ### Added
 
 - Local `family.presence` service facade for registered EZO addons, versions and capabilities.
