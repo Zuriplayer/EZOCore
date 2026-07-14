@@ -4,6 +4,12 @@ All notable changes to EZOCore are documented in this file.
 
 ## Unreleased
 
+## [0.1.6] - 2026-07-14
+
+### Fixed
+
+- Skips non-tree controls while selecting the native `Settings > EZO` node, preventing a startup error on ESO clients where menu children do not all expose `GetData()`.
+
 ## [0.1.5] - 2026-07-14
 
 ### Added

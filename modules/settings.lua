@@ -1357,10 +1357,15 @@ local function SelectSettingsNode()
     local children = { settingsMenu:GetChildren() }
     for index = 1, (children and #children or 0) do
         local child = children[index]
-        local data = child:GetData()
-        if data and data.id == panelId then
-            child:GetTree():SelectNode(child)
-            return
+        if child and type(child.GetData) == "function" then
+            local data = child:GetData()
+            if data and data.id == panelId and type(child.GetTree) == "function" then
+                local tree = child:GetTree()
+                if tree and type(tree.SelectNode) == "function" then
+                    tree:SelectNode(child)
+                    return
+                end
+            end
         end
     end
 end
