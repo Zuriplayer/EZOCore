@@ -96,7 +96,7 @@ local function IsExpired(entry, now)
         and entry.expiresAt <= now
 end
 
-function LOCAL_STATE.FireCleared(key, previousEntry, reason)
+local function FireCleared(key, previousEntry, reason)
     local copiedPrevious = CopyEntry(previousEntry)
     EZOCore:FireCallback(EVENT_CLEARED, key, copiedPrevious, reason)
     EZOCore:FireCallback("EZOCore:LocalStateCleared", key, copiedPrevious, reason)
@@ -112,7 +112,7 @@ function LOCAL_STATE.FireCleared(key, previousEntry, reason)
     end
 
     for _, callback in ipairs(snapshot) do
-        local ok, err = pcall(callback, nil, copiedPrevious, reason)
+        local ok, err = pcall(callback, nil, CopyEntry(previousEntry), reason)
         if not ok then
             EZOCore:Error("LocalState subscriber error for '%s': %s", key, tostring(err))
         end
@@ -124,7 +124,7 @@ local function PruneExpired()
     for key, entry in pairs(entries) do
         if IsExpired(entry, now) then
             entries[key] = nil
-            LOCAL_STATE.FireCleared(key, entry, "expired")
+            FireCleared(key, entry, "expired")
         end
     end
 end
@@ -140,10 +140,8 @@ local function FireSubscribers(key, entry, previousEntry)
         snapshot[index] = listeners[index]
     end
 
-    local copiedEntry = CopyEntry(entry)
-    local copiedPrevious = CopyEntry(previousEntry)
     for _, callback in ipairs(snapshot) do
-        local ok, err = pcall(callback, copiedEntry, copiedPrevious)
+        local ok, err = pcall(callback, CopyEntry(entry), CopyEntry(previousEntry))
         if not ok then
             EZOCore:Error("LocalState subscriber error for '%s': %s", key, tostring(err))
         end
@@ -218,7 +216,7 @@ function LOCAL_STATE.Clear(_, key, reason)
         return true
     end
     entries[normalizedKey] = nil
-    LOCAL_STATE.FireCleared(normalizedKey, previousEntry, reason or "cleared")
+    FireCleared(normalizedKey, previousEntry, reason or "cleared")
     return true
 end
 

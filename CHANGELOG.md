@@ -4,6 +4,21 @@ All notable changes to EZOCore are documented in this file.
 
 ## Unreleased
 
+## [0.1.13] - 2026-07-15
+
+### Fixed
+
+- Added a grouped presence heartbeat at half the peer TTL so stable members do
+  not disappear from the remote cache.
+- Preserved queued presence, activity and performance variants independently
+  instead of replacing every queued message sharing the protocol ID.
+- Reset and expire activity/performance sequence guards across sender sessions
+  and state TTL boundaries.
+- Declared the capability mask as a true unsigned 32-bit field.
+- Zeroed ping and FPS whenever performance privacy is not public.
+- Isolated local-state subscriber payload copies and kept the clear helper
+  internal to the service.
+
 ## [0.1.12] - 2026-07-15
 
 ### Added

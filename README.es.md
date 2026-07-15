@@ -75,7 +75,9 @@ compatibilidad por capacidad/build, anuncio de presencia, publicación de
 actividad/rendimiento, consulta de rendimiento remoto y solicitud de
 resincronización. Los métodos de anuncio y solicitud devuelven un motivo sin
 enviar cuando el transporte, el grupo o el ajuste correspondiente del usuario
-en LibGroupBroadcast no están disponibles.
+en LibGroupBroadcast no están disponibles. Los clientes agrupados con el
+transporte activo renuevan presencia cada 45 segundos; los estados de
+rendimiento no públicos nunca exponen ping ni FPS.
 
 ## Requisitos
 

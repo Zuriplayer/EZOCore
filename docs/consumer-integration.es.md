@@ -176,6 +176,11 @@ if groupPresence then
 end
 ```
 
+`privacyState = "public"` exige valores válidos de ping y FPS. Con `unknown`,
+`private` o `hidden`, las métricas pueden omitirse y EZOCore transmite ceros. El
+productor sigue siendo responsable de ofrecer un opt-in explícito antes de
+publicar estado de rendimiento.
+
 Los consumidores reciben el estado de actividad validado mediante
 `EZO_CORE_GROUP_ACTIVITY_STATE_UPDATED`. El tipo de actividad, la etapa y el
 resultado son valores con nombre; los códigos compactos usados por red también
@@ -197,6 +202,9 @@ addon, `AddOnVersion` numérico, versión de API local y bits de capacidades
 declaradas. Los peers desconocidos o caducados deben seguir como `unknown`; un
 consumidor no debe deducir que falta un addon hasta recibir una presencia válida
 del miembro actual del grupo.
+EZOCore renueva la presencia cada 45 segundos mientras el jugador está en grupo
+y reinicia el estado transitorio de secuencias cuando un emisor comienza una
+sesión nueva.
 
 Los IDs reservados y el formato por red estan documentados en
 [group-presence-protocol.es.md](group-presence-protocol.es.md). El protocolo es
@@ -336,14 +344,7 @@ Usa `UnregisterCallback(eventName, callback)` al retirar listeners temporales.
 
 ## Todavia No Implementado
 
-EZOCore actualmente no implementa:
-
-- transmision activa de presencia de grupo;
-- presencia entre jugadores;
-- registro de peers/miembros;
-- sincronizacion de estado de reset;
-- comandos remotos ni viaje automatico;
-- SavedVariables como bus.
-
-Las futuras funciones entre jugadores deben ser primero informativas,
-versionadas, comprobadas por capacidad y validadas por separado.
+EZOCore no implementa comandos remotos, viaje automático ni SavedVariables como
+bus. La presencia de grupo y las APIs productoras informativas están
+implementadas, pero todavía requieren pruebas de aceptación con varios clientes
+antes de que los consumidores dependan de ellas para comportamiento visible.

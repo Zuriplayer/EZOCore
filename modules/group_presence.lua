@@ -10,6 +10,7 @@ local SERVICE_API_VERSION = 1
 
 local PRESENCE_PROTOCOL_VERSION = 1
 local PEER_TTL_SECONDS = 90
+local PRESENCE_HEARTBEAT_MS = 45000
 local MAX_WIRE_ADDONS = 16
 local SEQUENCE_MODULUS = 65536
 local SEQUENCE_HALF_RANGE = SEQUENCE_MODULUS / 2
@@ -123,6 +124,7 @@ if type(_G.GetFrameTimeMilliseconds) == "function" then
 end
 local announceGeneration = 0
 local initialized = false
+local HEARTBEAT_UPDATE_NAME = "EZOCore_GroupPresenceHeartbeat"
 local handler
 local protocol
 local firePresenceRequest
@@ -412,6 +414,12 @@ local function IsStateExpired(state, now)
     return type(state) ~= "table" or (tonumber(state.expiresAt) or 0) <= now
 end
 
+local function ClearPeerTransientState(unitTag)
+    activitySequenceByUnitTag[unitTag] = nil
+    performanceSequenceByUnitTag[unitTag] = nil
+    performanceStateByUnitTag[unitTag] = nil
+end
+
 local function ResolveDisplayName(unitTag)
     if type(_G.GetUnitDisplayName) == "function" then
         local displayName = _G.GetUnitDisplayName(unitTag)
@@ -455,7 +463,11 @@ local function AddGroupProtocolFields(targetProtocol, lgb)
         lgb.CreateNumericField("addonKey", { minValue = 1, maxValue = 63 }),
         lgb.CreateNumericField("addOnVersion", { minValue = 0, maxValue = 1048575 }),
         lgb.CreateNumericField("apiVersion", { minValue = 0, maxValue = 255 }),
-        lgb.CreateNumericField("capabilityMask", { numBits = 32 }),
+        lgb.CreateNumericField("capabilityMask", {
+            numBits = 32,
+            minValue = 0,
+            maxValue = 4294967295,
+        }),
     })
 
     targetProtocol:AddField(lgb.CreateVariantField({
@@ -562,6 +574,10 @@ local function HandleRemotePresence(unitTag, data)
         return false
     end
 
+    if previous and previous.sessionId ~= data.sessionId then
+        ClearPeerTransientState(unitTag)
+    end
+
     local ttl = data.ttlSeconds
     peersByUnitTag[unitTag] = {
         unitTag = unitTag,
@@ -586,7 +602,12 @@ local function HandleRemoteActivityState(unitTag, data)
     if type(_G.IsUnitGroupLeader) ~= "function" or not _G.IsUnitGroupLeader(unitTag) then
         return false
     end
+    local now = NowSeconds()
     local previousActivity = activitySequenceByUnitTag[unitTag]
+    if previousActivity and IsStateExpired(previousActivity, now) then
+        activitySequenceByUnitTag[unitTag] = nil
+        previousActivity = nil
+    end
     local previousActivitySequence = previousActivity
         and previousActivity.sessionId == data.sessionId
         and previousActivity.sequence
@@ -616,6 +637,7 @@ local function HandleRemoteActivityState(unitTag, data)
     activitySequenceByUnitTag[unitTag] = {
         sessionId = data.sessionId,
         sequence = data.sequence,
+        expiresAt = now + data.ttlSeconds,
     }
     local state = {
         protocolVersion = data.protocolVersion,
@@ -631,7 +653,7 @@ local function HandleRemoteActivityState(unitTag, data)
         sessionId = data.sessionId,
         ttlSeconds = data.ttlSeconds,
         targetKey = data.targetKey,
-        receivedAt = NowSeconds(),
+        receivedAt = now,
     }
     EZOCore:FireCallback("EZO_CORE_GROUP_ACTIVITY_STATE_UPDATED", unitTag, state)
     EZOCore:FireCallback("EZOCore:GroupActivityStateUpdated", unitTag, state)
@@ -643,7 +665,13 @@ local function HandleRemotePerformanceState(unitTag, data)
         return false
     end
 
+    local now = NowSeconds()
     local previousPerformance = performanceSequenceByUnitTag[unitTag]
+    if previousPerformance and IsStateExpired(previousPerformance, now) then
+        performanceSequenceByUnitTag[unitTag] = nil
+        performanceStateByUnitTag[unitTag] = nil
+        previousPerformance = nil
+    end
     local previousPerformanceSequence = previousPerformance and previousPerformance.sequence or nil
     if data.protocolVersion ~= PRESENCE_PROTOCOL_VERSION
         or not IsNewerSequence(data.sequence, previousPerformanceSequence)
@@ -664,9 +692,10 @@ local function HandleRemotePerformanceState(unitTag, data)
         return false
     end
 
-    local now = NowSeconds()
+    local publicMetrics = data.privacyState == WIRE_PRIVACY_STATES.public
     performanceSequenceByUnitTag[unitTag] = {
         sequence = data.sequence,
+        expiresAt = now + data.ttlSeconds,
     }
     performanceStateByUnitTag[unitTag] = {
         unitTag = unitTag,
@@ -674,8 +703,8 @@ local function HandleRemotePerformanceState(unitTag, data)
         sequence = data.sequence,
         sourceAddonKey = data.sourceAddonKey,
         sourceAddonId = sourceAddonId,
-        pingMs = data.pingMs,
-        fps = data.fps,
+        pingMs = publicMetrics and data.pingMs or 0,
+        fps = publicMetrics and data.fps or 0,
         privacyState = data.privacyState,
         ttlSeconds = data.ttlSeconds,
         receivedAt = now,
@@ -730,7 +759,7 @@ local function RegisterLibGroupBroadcast()
             error("LibGroupBroadcast field classes unavailable")
         end
         protocol:OnData(HandleRemoteGroupMessage)
-        if protocol:Finalize({ replaceQueuedMessages = true, isRelevantInCombat = false }) ~= true then
+        if protocol:Finalize({ replaceQueuedMessages = false, isRelevantInCombat = false }) ~= true then
             error("LibGroupBroadcast protocol could not be finalized")
         end
         firePresenceRequest = handler:DeclareCustomEvent(LGB_REQUEST_EVENT_ID, LGB_REQUEST_EVENT_NAME, {
@@ -776,12 +805,15 @@ local function CanSendProtocolMessage()
     return true
 end
 
-local function SendProtocolMessage(payload)
+local function SendProtocolMessage(payload, isRelevantInCombat)
     local canSend, reason = CanSendProtocolMessage()
     if not canSend then
         return false, reason
     end
-    return protocol:Send(payload, { replaceQueuedMessages = true, isRelevantInCombat = false })
+    return protocol:Send(payload, {
+        replaceQueuedMessages = false,
+        isRelevantInCombat = isRelevantInCombat == true,
+    })
 end
 
 local function ResolveStateArgument(first, second)
@@ -810,6 +842,18 @@ function GROUP_PRESENCE.Initialize()
             SchedulePresenceAnnouncement(500, 1000)
         end)
     end
+    if status.active
+        and _G.EVENT_MANAGER
+        and type(_G.EVENT_MANAGER.RegisterForUpdate) == "function" then
+        if type(_G.EVENT_MANAGER.UnregisterForUpdate) == "function" then
+            _G.EVENT_MANAGER:UnregisterForUpdate(HEARTBEAT_UPDATE_NAME)
+        end
+        _G.EVENT_MANAGER:RegisterForUpdate(HEARTBEAT_UPDATE_NAME, PRESENCE_HEARTBEAT_MS, function()
+            if IsLocalPlayerGrouped() then
+                GROUP_PRESENCE.AnnounceLocalPresence()
+            end
+        end)
+    end
     SchedulePresenceAnnouncement(500, 1000)
     return status.active == true
 end
@@ -824,6 +868,7 @@ function GROUP_PRESENCE.GetStatus()
         detail = status.detail,
         protocolVersion = PRESENCE_PROTOCOL_VERSION,
         ttlSeconds = PEER_TTL_SECONDS,
+        heartbeatMilliseconds = PRESENCE_HEARTBEAT_MS,
         protocolName = LGB_PROTOCOL_NAME,
         requestEventName = LGB_REQUEST_EVENT_NAME,
     }
@@ -840,6 +885,7 @@ function GROUP_PRESENCE.GetProtocolSpec()
         protocolId = LGB_PROTOCOL_ID,
         requestEventId = LGB_REQUEST_EVENT_ID,
         ttlSeconds = PEER_TTL_SECONDS,
+        heartbeatMilliseconds = PRESENCE_HEARTBEAT_MS,
         messageTypes = {
             presence = WIRE_MESSAGE_TYPES.presence,
             activityState = WIRE_MESSAGE_TYPES.activityState,
@@ -878,9 +924,7 @@ function GROUP_PRESENCE.PrunePeers(checkCurrentGroup)
             or (checkCurrentGroup == true and not IsCurrentGroupUnit(unitTag))
             or identityChanged then
             peersByUnitTag[unitTag] = nil
-            activitySequenceByUnitTag[unitTag] = nil
-            performanceSequenceByUnitTag[unitTag] = nil
-            performanceStateByUnitTag[unitTag] = nil
+            ClearPeerTransientState(unitTag)
         end
     end
 end
@@ -975,7 +1019,7 @@ function GROUP_PRESENCE.GetPeerCompatibility(_, unitTag, addonId, capability, mi
 end
 
 function GROUP_PRESENCE.AnnounceLocalPresence()
-    return SendProtocolMessage(GetLocalPresencePayload())
+    return SendProtocolMessage(GetLocalPresencePayload(), true)
 end
 
 function GROUP_PRESENCE.PublishActivityState(first, second)
@@ -1032,7 +1076,7 @@ function GROUP_PRESENCE.PublishActivityState(first, second)
         sessionId = sessionId,
         ttlSeconds = NormalizeTtlSeconds(state.ttlSeconds, 60),
         targetKey = targetKey,
-    } })
+    } }, false)
 end
 
 function GROUP_PRESENCE.PublishPerformanceState(first, second)
@@ -1042,20 +1086,25 @@ function GROUP_PRESENCE.PublishPerformanceState(first, second)
     end
 
     local sourceAddonKey = ResolveAddonKey(state.sourceAddonKey or state.sourceAddonId or state.addonId)
-    local pingMs = math.floor(tonumber(state.pingMs) or tonumber(state.ping) or -1)
-    local fps = math.floor(tonumber(state.fps) or -1)
     local privacyState = NormalizeEnumValue(WIRE_PRIVACY_STATES, state.privacyState or state.privacy)
     if not sourceAddonKey then
         return false, "invalidSourceAddon"
     end
-    if not IsIntegerInRange(pingMs, 0, 4095) then
-        return false, "invalidPing"
-    end
-    if not IsIntegerInRange(fps, 0, 255) then
-        return false, "invalidFps"
-    end
     if not privacyState then
         return false, "invalidPrivacyState"
+    end
+    local pingMs = math.floor(tonumber(state.pingMs) or tonumber(state.ping) or -1)
+    local fps = math.floor(tonumber(state.fps) or -1)
+    if privacyState == WIRE_PRIVACY_STATES.public then
+        if not IsIntegerInRange(pingMs, 0, 4095) then
+            return false, "invalidPing"
+        end
+        if not IsIntegerInRange(fps, 0, 255) then
+            return false, "invalidFps"
+        end
+    else
+        pingMs = 0
+        fps = 0
     end
     local sourceAddonId = ADDON_ID_BY_KEY[sourceAddonKey]
     local presence = EZOCore.Presence
@@ -1085,7 +1134,7 @@ function GROUP_PRESENCE.PublishPerformanceState(first, second)
         fps = fps,
         privacyState = privacyState,
         ttlSeconds = NormalizeTtlSeconds(state.ttlSeconds, 30),
-    } })
+    } }, true)
     if sent then
         performancePublishedAtBySourceKey[sourceAddonKey] = now
     end

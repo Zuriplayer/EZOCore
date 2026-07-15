@@ -45,6 +45,9 @@ compact capability bits. Stable numeric addon keys avoid repeatedly sending
 addon names and visible version strings. Compatibility comparisons use numeric
 `AddOnVersion`, not the display version.
 
+While grouped and the transport is active, EZOCore renews presence every 45
+seconds. The heartbeat is half the current 90-second peer TTL.
+
 | Field | Range / format |
 | --- | --- |
 | `protocolVersion` | 1-15 |
@@ -60,14 +63,15 @@ Addon record:
 | `addonKey` | stable EZO addon key, 1-63 |
 | `addOnVersion` | 0-1048575 |
 | `apiVersion` | 0-255 |
-| `capabilityMask` | 32-bit mask |
+| `capabilityMask` | unsigned 32-bit mask |
 
 Unknown addon keys are ignored. A malformed record, a duplicate known key, an
 unsupported protocol version, a stale sequence or a sender that is no longer a
 current group unit causes the complete presence message to be rejected.
 Sequence freshness is evaluated within the same ephemeral sender session so a
 `/reloadui` can start a new sequence immediately without waiting for the old
-peer TTL to expire.
+peer TTL to expire. A sender-session change also clears cached activity and
+performance sequence guards for that peer.
 
 ### `activityState`
 
@@ -120,15 +124,17 @@ Accepted privacy values in protocol v1:
 
 | Value | Meaning |
 | --- | --- |
-| `0` | unknown |
+| `0` | unknown; metrics are transmitted as zero |
 | `1` | public/shared |
-| `2` | private |
-| `3` | hidden |
+| `2` | private; metrics are transmitted as zero |
+| `3` | hidden; metrics are transmitted as zero |
 
 The receiver accepts performance state only after a valid presence from that
 peer proves that the source addon exposes `group.performanceState.provider`.
 EZOCore exposes `PublishPerformanceState(...)` and throttles publication to at
-most once every 10 seconds per source addon key.
+most once every 10 seconds per source addon key. Only the public state carries
+the supplied ping and FPS. Other privacy states accept omitted metrics and both
+the sender and receiver normalize them to zero.
 
 ## Stable Addon Keys
 
@@ -189,6 +195,12 @@ avoid unsolicited chat warnings.
 The implementation uses only LibGroupBroadcast's public field factories. The
 protocol and request event use the numeric IDs reserved in the official
 registry.
+
+Presence, activity and performance share one VariantField protocol. Sends do
+not use LibGroupBroadcast's protocol-wide queued-message replacement because a
+new variant would otherwise delete a different queued variant with the same
+protocol ID. Presence and optional performance messages are marked relevant in
+combat; activity messages retain the non-combat default.
 
 Public `family.groupPresence` producer methods:
 

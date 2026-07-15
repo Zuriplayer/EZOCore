@@ -74,7 +74,8 @@ queries, remote peer/addon lookups, capability/build compatibility checks,
 presence announcement, activity/performance publication, remote performance
 lookup and resync requests. Announcement and request methods return a reason
 without sending when the transport, group or corresponding LibGroupBroadcast
-user setting is unavailable.
+user setting is unavailable. Active grouped clients renew presence every 45
+seconds; non-public performance states never expose ping or FPS values.
 
 ## Requirements
 

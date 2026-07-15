@@ -46,6 +46,10 @@ numéricas y bits compactos de capacidades. Las claves numéricas estables evita
 reenviar nombres de addon y versiones visibles. Las comparaciones de
 compatibilidad usan el `AddOnVersion` numérico, no la versión mostrada.
 
+Mientras el jugador está en grupo y el transporte está activo, EZOCore renueva
+la presencia cada 45 segundos. El heartbeat equivale a la mitad del TTL actual
+de 90 segundos para peers.
+
 | Campo | Rango / formato |
 | --- | --- |
 | `protocolVersion` | 1-15 |
@@ -61,7 +65,7 @@ Registro de addon:
 | `addonKey` | clave estable de addon EZO, 1-63 |
 | `addOnVersion` | 0-1048575 |
 | `apiVersion` | 0-255 |
-| `capabilityMask` | mascara de 32 bits |
+| `capabilityMask` | máscara unsigned de 32 bits |
 
 Las claves de addon desconocidas se ignoran. Un registro mal formado, una clave
 conocida duplicada, una versión de protocolo no soportada, una secuencia antigua
@@ -69,7 +73,8 @@ o un emisor que ya no pertenece al grupo hacen que se rechace el mensaje de
 presencia completo.
 La secuencia se comprueba dentro de la misma sesión efímera del emisor, para que
 un `/reloadui` pueda empezar una secuencia nueva sin esperar a que caduque el TTL
-del peer anterior.
+del peer anterior. Un cambio de sesión del emisor también limpia las secuencias
+de actividad y rendimiento almacenadas para ese peer.
 
 ### `activityState`
 
@@ -122,16 +127,18 @@ Valores de privacidad aceptados en el protocolo v1:
 
 | Valor | Significado |
 | --- | --- |
-| `0` | desconocido |
+| `0` | desconocido; las métricas se transmiten como cero |
 | `1` | público/compartido |
-| `2` | privado |
-| `3` | oculto |
+| `2` | privado; las métricas se transmiten como cero |
+| `3` | oculto; las métricas se transmiten como cero |
 
 El receptor solo acepta estado de rendimiento después de que una presencia válida
 de ese peer demuestre que el addon emisor expone
 `group.performanceState.provider`. EZOCore expone
 `PublishPerformanceState(...)` y limita la publicación a una vez cada 10 segundos
-por clave de addon emisor.
+por clave de addon emisor. Solo el estado público transporta el ping y los FPS
+indicados. Los demás estados permiten omitir las métricas y tanto el emisor como
+el receptor las normalizan a cero.
 
 ## Claves Estables De Addons
 
@@ -192,6 +199,12 @@ estados normales y evitar avisos no solicitados en chat.
 La implementación usa únicamente las fábricas públicas de campos de
 LibGroupBroadcast. El protocolo y el evento de solicitud usan los IDs numéricos
 reservados en el registro oficial.
+
+Presencia, actividad y rendimiento comparten un protocolo VariantField. Los
+envíos no usan el reemplazo de mensajes en cola por protocolo de
+LibGroupBroadcast, porque una variante nueva eliminaría otra variante distinta
+en cola con el mismo ID. Presencia y rendimiento opcional se marcan como
+relevantes en combate; actividad mantiene el comportamiento fuera de combate.
 
 Métodos públicos productores de `family.groupPresence`:
 

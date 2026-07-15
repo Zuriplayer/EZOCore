@@ -174,6 +174,11 @@ if groupPresence then
 end
 ```
 
+`privacyState = "public"` requires valid ping and FPS values. For `unknown`,
+`private` or `hidden`, metrics may be omitted and EZOCore transmits zeros. The
+producer remains responsible for exposing an explicit opt-in before publishing
+performance state.
+
 Consumers receive validated activity state through
 `EZO_CORE_GROUP_ACTIVITY_STATE_UPDATED`. Its activity type, stage and result are
 named values; the corresponding compact wire codes are also exposed with a
@@ -193,6 +198,8 @@ When transport is enabled, compatibility is based on stable addon
 IDs, numeric `AddOnVersion`, local API version and declared capability bits.
 Unknown or expired peers must remain `unknown`; consumers must not infer that an
 addon is absent until a valid presence for that current group member exists.
+EZOCore refreshes presence every 45 seconds while grouped and resets transient
+sequence state when a sender starts a new session.
 
 The reserved IDs and wire format are documented in
 [group-presence-protocol.md](group-presence-protocol.md). The protocol is
@@ -329,14 +336,7 @@ listeners.
 
 ## Not Implemented Yet
 
-Current EZOCore does not implement:
-
-- active group-presence transmission;
-- cross-player presence;
-- peer/member registry;
-- reset-state synchronization;
-- remote commands or automatic travel;
-- SavedVariables as a bus.
-
-Future player-to-player features must be informational first, versioned,
-capability-checked and validated separately.
+Current EZOCore does not implement remote commands, automatic travel or
+SavedVariables as a bus. Group presence and informational producer APIs are
+implemented but still require multi-client acceptance testing before consumers
+depend on them for player-facing behavior.
