@@ -4,6 +4,26 @@ All notable changes to EZOCore are documented in this file.
 
 ## Unreleased
 
+## [0.1.16] - 2026-07-16
+
+### Added
+
+- Added optional debug-controller registration to the `family.debug` service.
+- Added a one-way Settings > EZO action that disables all debug and diagnostic modes registered by loaded family addons.
+- Added localized addon description tooltips to the Settings > EZO addon lists and side index, without folder or load-state metadata.
+
+### Changed
+
+- Clarified that the shared layout control shows and unlocks registered windows, alerts and previews without displaying them over Settings.
+- Moved routine startup registration messages for addons, services, settings panels and layout surfaces from Info to Debug.
+
+### Fixed
+
+- Rebuilt the Settings > EZO root panel when family layout surfaces or debug controllers are registered after the panel was first created.
+- Made the family layout service tolerate both method and direct-function calls for registered surface controls.
+- Rate-limited repeated layout/debug callback failures and included the original callback error in the first warning.
+- Made shared layout and debug callbacks tolerate both function-style and method-style consumer implementations.
+
 ## [0.1.15] - 2026-07-16
 
 ### Added

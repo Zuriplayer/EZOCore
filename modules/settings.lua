@@ -56,6 +56,65 @@ local ADDON_LIFECYCLE_CATALOG = {
 }
 -- EZO-LIFECYCLE-CATALOG-END
 
+local ADDON_DESCRIPTION_CATALOG = {
+    ezoalerts = {
+        en = "Screen and chat alerts for selected EZO gameplay events.",
+        es = "Alertas en pantalla y chat para eventos de juego seleccionados de EZO.",
+    },
+    ezoauto = {
+        en = "Assisted automation helpers with explicit user confirmation boundaries.",
+        es = "Ayudas de automatizacion asistida con limites de confirmacion explicita.",
+    },
+    ezocamsens = {
+        en = "Camera sensitivity and turning behavior adjustments.",
+        es = "Ajustes de sensibilidad de camara y comportamiento de giro.",
+    },
+    ezochat = {
+        en = "EZO-family chat tools and message helpers.",
+        es = "Herramientas de chat y ayudas de mensajes de la familia EZO.",
+    },
+    ezocombat = {
+        en = "Combat-facing EZO helpers for focused beta testing.",
+        es = "Ayudas EZO orientadas a combate para pruebas beta controladas.",
+    },
+    ezocursor = {
+        en = "Reticle and cursor feedback helpers for player state awareness.",
+        es = "Ayudas de reticula y cursor para reconocer mejor el estado del jugador.",
+    },
+    ezocustomsupporticons = {
+        en = "Custom support and tactical icon integration.",
+        es = "Integracion de iconos personalizados de soporte y tactica.",
+    },
+    ezogroupframes = {
+        en = "Compact custom group frames for dungeon and trial groups.",
+        es = "Frames de grupo compactos para grupos de mazmorra y trial.",
+    },
+    ezohud = {
+        en = "HUD overlays and visual indicators for EZO gameplay helpers.",
+        es = "Overlays HUD e indicadores visuales para ayudas de juego EZO.",
+    },
+    ezokeybinds = {
+        en = "Stable EZO keybind support and command bindings.",
+        es = "Soporte estable de atajos y bindings de comandos EZO.",
+    },
+    ezometter = {
+        en = "Role, buff and tracker surfaces for EZO group awareness.",
+        es = "Superficies de rol, buffs y seguimiento para conciencia de grupo EZO.",
+    },
+    ezopvp = {
+        en = "PvP travel, inventory and quickslot helpers.",
+        es = "Ayudas de viaje PvP, inventario y accesos rapidos.",
+    },
+    ezotakingaim = {
+        en = "Archived aiming helper retained for access.",
+        es = "Ayuda de apuntado archivada y conservada para acceso.",
+    },
+    ezotools = {
+        en = "Quick command panel, travel tools, group actions and utility helpers.",
+        es = "Panel rapido de comandos, herramientas de viaje, acciones de grupo y utilidades.",
+    },
+}
+
 local panelsById = {}
 local panelOrder = {}
 local hubOptions = {}
@@ -67,8 +126,10 @@ local selectedPanelId
 local createdSettingsPanel = false
 local createdLamHubPanel = false
 local layoutCallbacksRegistered = false
+local debugCallbacksRegistered = false
 local controlCounter = 0
 local RebuildHubOptions
+local InvalidatePanelHost
 local settingsSv
 
 SETTINGS.reloadRequired = false
@@ -90,13 +151,17 @@ local STRINGS = {
         languageSpanish = "Spanish",
         languageAddon = "Let each addon choose",
         layoutHeader = "Interface layout",
-        layoutHeaderTooltip = "Temporarily unlock movable EZO windows and previews. They remain hidden while Settings is open and appear when you return to the main HUD.",
-        moveAll = "Move all EZO windows",
-        moveAllTooltip = "Enable movement for every registered EZO surface. Close Settings to arrange them, then return here to disable movement.",
+        layoutHeaderTooltip = "Temporarily show and unlock registered EZO windows, alerts and previews. They remain hidden while Settings is open and appear when you return to the main HUD.",
+        moveAll = "Show and move all EZO windows and alerts",
+        moveAllTooltip = "Enable placement mode for every registered EZO surface. Close Settings to arrange them, then return here to disable placement mode.",
         individualWindows = "Individual windows",
         individualWindowsTooltip = "Enable or disable movement for one registered EZO surface without changing the others.",
         noMovableSurfaces = "No loaded EZO addon has registered a movable surface.",
         surfaceMoveTooltip = "Temporarily enable movement for this surface. Its addon remains responsible for position and preview behavior.",
+        debugHeader = "Diagnostics",
+        debugHeaderTooltip = "Controls diagnostic and debug modes exposed by loaded EZO addons. Each addon remains responsible for its own setting and runtime cleanup.",
+        disableAllDebug = "Disable all EZO debug modes",
+        disableAllDebugTooltip = "Turns off every registered debug or diagnostic mode in loaded EZO addons. Individual addon controls remain available; this action never enables debug.",
         noOptions = "This addon has not registered settings yet.",
         noLam = "LibAddonMenu-2.0 is not available. Option controls cannot be rendered.",
         unsupportedControl = "Unsupported setting control: %s",
@@ -107,8 +172,6 @@ local STRINGS = {
         coreProtected = "EZOCore cannot be disabled from this panel.",
         enabled = "Enabled",
         disabled = "Disabled",
-        folder = "Folder: %s",
-        state = "State: %s",
         hubHeader = "EZO settings hub",
         hubHeaderTooltip = "Central access point for EZO family addon settings.",
         addonSettings = "Addon settings",
@@ -143,13 +206,17 @@ local STRINGS = {
         languageSpanish = "Español",
         languageAddon = "Dejar que cada addon elija",
         layoutHeader = "Disposición de interfaz",
-        layoutHeaderTooltip = "Desbloquea temporalmente ventanas y previsualizaciones movibles de EZO. Permanecen ocultas mientras Settings está abierto y aparecen al volver al HUD principal.",
-        moveAll = "Mover todas las ventanas EZO",
-        moveAllTooltip = "Activa el movimiento de todas las superficies EZO registradas. Cierra Settings para colocarlas y vuelve aquí para desactivar el movimiento.",
+        layoutHeaderTooltip = "Muestra y desbloquea temporalmente ventanas, avisos y previsualizaciones EZO registradas. Permanecen ocultas mientras Settings está abierto y aparecen al volver al HUD principal.",
+        moveAll = "Mostrar y mover todas las ventanas y avisos EZO",
+        moveAllTooltip = "Activa el modo de colocación de todas las superficies EZO registradas. Cierra Settings para colocarlas y vuelve aquí para desactivar el modo de colocación.",
         individualWindows = "Ventanas individuales",
         individualWindowsTooltip = "Activa o desactiva el movimiento de una superficie EZO registrada sin cambiar las demás.",
         noMovableSurfaces = "Ningún addon EZO cargado ha registrado una superficie movible.",
         surfaceMoveTooltip = "Activa temporalmente el movimiento de esta superficie. Su addon sigue siendo responsable de la posición y la previsualización.",
+        debugHeader = "Diagnóstico",
+        debugHeaderTooltip = "Controla los modos de diagnóstico y depuración expuestos por addons EZO cargados. Cada addon conserva la responsabilidad sobre su ajuste y la limpieza de recursos.",
+        disableAllDebug = "Desactivar todos los modos debug EZO",
+        disableAllDebugTooltip = "Desactiva todos los modos debug o de diagnóstico registrados por addons EZO cargados. Los controles individuales siguen disponibles; esta acción nunca activa debug.",
         noOptions = "Este addon todavía no ha registrado opciones.",
         noLam = "LibAddonMenu-2.0 no está disponible. No se pueden dibujar controles de opciones.",
         unsupportedControl = "Control de ajuste no soportado: %s",
@@ -160,8 +227,6 @@ local STRINGS = {
         coreProtected = "EZOCore no se puede desactivar desde este panel.",
         enabled = "Activado",
         disabled = "Desactivado",
-        folder = "Carpeta: %s",
-        state = "Estado: %s",
         hubHeader = "Hub de configuración EZO",
         hubHeaderTooltip = "Acceso central a la configuración de los addons de la familia EZO.",
         addonSettings = "Configuración de addons",
@@ -230,6 +295,24 @@ local function StripMarkup(value)
     local text = tostring(value or "")
     text = string.gsub(text, "|[Cc]%x%x%x%x%x%x", "")
     text = string.gsub(text, "|[Rr]", "")
+    return text
+end
+
+local function TrimText(value)
+    local text = tostring(value or "")
+    text = string.gsub(text, "^%s+", "")
+    text = string.gsub(text, "%s+$", "")
+    return text
+end
+
+local function GetBriefText(value, maxLength)
+    local text = TrimText(StripMarkup(value))
+    text = string.gsub(text, "[\r\n]+", " ")
+    text = string.gsub(text, "%s%s+", " ")
+    maxLength = tonumber(maxLength) or 260
+    if #text > maxLength then
+        text = string.sub(text, 1, maxLength - 3) .. "..."
+    end
     return text
 end
 
@@ -449,6 +532,48 @@ local function GetAddOnRecordId(record)
 
     return NormalizeId(StripMarkup(record.name))
         or NormalizeId(StripMarkup(record.title))
+end
+
+local function FindInstalledEZORecord(addonId)
+    local normalizedId = NormalizeId(addonId)
+    if not normalizedId then
+        return nil
+    end
+
+    for _, record in ipairs(GetInstalledEZOAddons()) do
+        if GetAddOnRecordId(record) == normalizedId then
+            return record
+        end
+    end
+    return nil
+end
+
+local function GetCatalogDescription(addonId)
+    local normalizedId = NormalizeId(addonId)
+    local entry = normalizedId and ADDON_DESCRIPTION_CATALOG[normalizedId] or nil
+    if type(entry) ~= "table" then
+        return ""
+    end
+
+    local lang = GetLanguage()
+    return GetBriefText(entry[lang] or entry.en or "", 280)
+end
+
+local function BuildAddonTooltip(entry, record, isCore)
+    local panelData = entry and entry.panelData or nil
+    local addonId = entry and entry.addonId or GetAddOnRecordId(record)
+    local description = GetCatalogDescription(addonId)
+    if description == "" and panelData then
+        description = GetBriefText(panelData.description, 280)
+    end
+    if description == "" and record then
+        description = GetBriefText(record.description, 280)
+    end
+    if description == "" and isCore then
+        description = T("hubHeaderTooltip")
+    end
+
+    return description
 end
 
 local function IsAddOnEnabled(record)
@@ -737,9 +862,16 @@ local function GetLayoutService()
     return nil
 end
 
+local function GetDebugService()
+    if EZOCore and type(EZOCore.GetService) == "function" then
+        return EZOCore:GetService("family.debug", 1)
+    end
+    return nil
+end
+
 local function RefreshLayoutOptions()
     RebuildHubOptions()
-    SETTINGS:RefreshCurrentPanel()
+    SETTINGS:RefreshCurrentPanel(true)
 end
 
 local function CreateLayoutSurfaceOption(service, surface)
@@ -812,6 +944,33 @@ local function BuildLayoutOptions()
     return options
 end
 
+local function BuildDebugOptions()
+    local service = GetDebugService()
+    return {
+        CreateInfoHeader(T("debugHeader"), T("debugHeaderTooltip")),
+        {
+            type = "button",
+            name = T("disableAllDebug"),
+            tooltip = T("disableAllDebugTooltip"),
+            func = function()
+                if service and type(service.DisableAllControllers) == "function" then
+                    service:DisableAllControllers()
+                    RebuildHubOptions()
+                    SETTINGS:RefreshCurrentPanel(true)
+                end
+            end,
+            disabled = function()
+                return not service
+                    or type(service.GetControllers) ~= "function"
+                    or #service:GetControllers() == 0
+                    or type(service.IsAnyControllerEnabled) ~= "function"
+                    or not service:IsAnyControllerEnabled()
+            end,
+            width = "full",
+        },
+    }
+end
+
 local function BuildInstalledAddonsOptions()
     ApplyFirstSeenAddonDefaults()
     local manager = ResolveAddOnManager()
@@ -843,8 +1002,6 @@ local function BuildInstalledAddonsOptions()
     local currentStage
     for _, record in ipairs(addons) do
         local title = StripMarkup(record.title)
-        local folder = StripMarkup(record.name)
-        local state = tostring(record.state or "")
         local addonId = GetAddOnRecordId(record)
         local stage = GetLifecycleStage(addonId and panelsById[addonId], addonId)
         if stage ~= currentStage then
@@ -852,10 +1009,7 @@ local function BuildInstalledAddonsOptions()
             options[#options + 1] = CreateInfoHeader(T(definition.nameKey), T(definition.tooltipKey))
             currentStage = stage
         end
-        local detail = T("folder", folder)
-        if state ~= "" then
-            detail = detail .. "\n" .. T("state", state)
-        end
+        local detail = BuildAddonTooltip(addonId and panelsById[addonId], record, false)
 
         options[#options + 1] = {
             type = "checkbox",
@@ -900,7 +1054,19 @@ local function BuildInstalledAddonsOptions()
 end
 
 local function BuildCoreOptions()
-    return BuildLanguageOptions()
+    local options = {}
+    local sections = {
+        BuildLanguageOptions(),
+        BuildLayoutOptions(),
+        BuildDebugOptions(),
+    }
+
+    for _, section in ipairs(sections) do
+        for index = 1, #section do
+            options[#options + 1] = section[index]
+        end
+    end
+    return options
 end
 
 local function BuildManagerEntry()
@@ -935,6 +1101,10 @@ RebuildHubOptions = function()
     for index = 1, #layoutOptions do
         hubOptions[#hubOptions + 1] = layoutOptions[index]
     end
+    local debugOptions = BuildDebugOptions()
+    for index = 1, #debugOptions do
+        hubOptions[#hubOptions + 1] = debugOptions[index]
+    end
 
     local addonControls = {
         CreateInfoHeader(T("addonSettings"), T("addonSettingsTooltip")),
@@ -968,7 +1138,7 @@ RebuildHubOptions = function()
             addonControls[#addonControls + 1] = {
                 type = "submenu",
                 name = displayName,
-                tooltip = StripMarkup(panelData.description or ""),
+                tooltip = BuildAddonTooltip(entry, FindInstalledEZORecord(addonId), false),
                 controls = controls,
             }
         end
@@ -1047,6 +1217,14 @@ local function GetMenuDisplayName(rowData)
         return StripMarkup(rowData.record.title or rowData.record.name or rowData.addonId)
     end
     return tostring(rowData and rowData.addonId or "")
+end
+
+local function GetAddonMenuTooltip(rowData)
+    if not rowData then
+        return ""
+    end
+
+    return BuildAddonTooltip(rowData.entry, rowData.record, rowData.isCore == true)
 end
 
 local function BuildMenuRows()
@@ -1209,18 +1387,25 @@ local function RebuildMenuList()
             "ZoFontGame")
         label:SetDimensions(230, 28)
         label:SetAnchor(TOPLEFT, row, TOPLEFT, 34, 0)
-        label:SetMouseEnabled(currentRow.entry ~= nil)
+        label:SetMouseEnabled(true)
         if currentRow.entry then
             label:SetHandler("OnMouseUp", function()
                 SETTINGS:OpenSettingsPanel(currentRow.addonId)
             end)
-            label:SetHandler("OnMouseEnter", function(control)
-                SetMenuLabelColor(control, currentRow, true)
-            end)
-            label:SetHandler("OnMouseExit", function(control)
-                SetMenuLabelColor(control, currentRow, false)
-            end)
         end
+        label:SetHandler("OnMouseEnter", function(control)
+            SetMenuLabelColor(control, currentRow, true)
+            local tooltip = GetAddonMenuTooltip(currentRow)
+            if tooltip ~= "" and type(ZO_Tooltips_ShowTextTooltip) == "function" then
+                ZO_Tooltips_ShowTextTooltip(control, RIGHT, tooltip)
+            end
+        end)
+        label:SetHandler("OnMouseExit", function(control)
+            SetMenuLabelColor(control, currentRow, false)
+            if type(ZO_Tooltips_HideTextTooltip) == "function" then
+                ZO_Tooltips_HideTextTooltip()
+            end
+        end)
         SetMenuLabelColor(label, currentRow, false)
 
         if previous then
@@ -1335,6 +1520,30 @@ local function RenderSelectedPanel()
     end
 
     RebuildMenuList()
+end
+
+InvalidatePanelHost = function(addonId)
+    if not ui or not addonId then
+        return
+    end
+
+    local host = ui.panelHosts[addonId]
+    if not host then
+        return
+    end
+
+    if ui.currentPanelHost == host then
+        FireLamCallback("LAM-PanelClosed", host)
+        ui.currentPanelHost = nil
+        ui.currentPanelId = nil
+    end
+    if type(host._ezoCreatedControls) == "table" then
+        ClearControls(host._ezoCreatedControls)
+    end
+    if type(host.SetHidden) == "function" then
+        host:SetHidden(true)
+    end
+    ui.panelHosts[addonId] = nil
 end
 
 local function CreateSettingsWindow()
@@ -1499,6 +1708,9 @@ local function RegisterNativeSettingsPanel()
             if ui and ui.root then
                 ui.root:SetHidden(false)
             end
+            if selectedPanelId == MANAGER_PANEL_ID then
+                InvalidatePanelHost(selectedPanelId)
+            end
             RenderSelectedPanel()
         end,
         unselectedCallback = function()
@@ -1570,7 +1782,7 @@ function SETTINGS.RegisterSettingsPanel(_, addonId, addonPanelId, panelData, opt
         RebuildMenuList()
     end
 
-    EZOCore:Info("Settings panel registered: %s", normalizedId)
+    EZOCore:Debug("Settings panel registered: %s", normalizedId)
     EZOCore:FireCallback("EZOCore:SettingsPanelRegistered", normalizedId, addonPanelId)
     return true
 end
@@ -1597,6 +1809,9 @@ function SETTINGS.OpenSettingsPanel(_, addonId)
 
     selectedPanelId = normalizedId
     if ui then
+        if normalizedId == MANAGER_PANEL_ID then
+            InvalidatePanelHost(normalizedId)
+        end
         RenderSelectedPanel()
     end
     return true
@@ -1614,8 +1829,12 @@ function SETTINGS.OpenLamHub()
     return false
 end
 
-function SETTINGS.RefreshCurrentPanel()
+function SETTINGS.RefreshCurrentPanel(first, second)
     if ui then
+        local forceRebuild = second ~= nil and second == true or first == true
+        if forceRebuild and selectedPanelId then
+            InvalidatePanelHost(selectedPanelId)
+        end
         RenderSelectedPanel()
     end
 end
@@ -1643,9 +1862,18 @@ function SETTINGS.Initialize()
     if not layoutCallbacksRegistered and type(EZOCore.RegisterCallback) == "function" then
         EZOCore:RegisterCallback("EZOCore:LayoutSurfaceRegistered", function()
             RebuildHubOptions()
-            SETTINGS:RefreshCurrentPanel()
+            SETTINGS:RefreshCurrentPanel(true)
         end)
         layoutCallbacksRegistered = true
+    end
+    if not debugCallbacksRegistered and type(EZOCore.RegisterCallback) == "function" then
+        local function RefreshDebugOptions()
+            RebuildHubOptions()
+            SETTINGS:RefreshCurrentPanel(true)
+        end
+        EZOCore:RegisterCallback("EZOCore:DebugControllerRegistered", RefreshDebugOptions)
+        EZOCore:RegisterCallback("EZOCore:DebugControllersChanged", RefreshDebugOptions)
+        debugCallbacksRegistered = true
     end
     ApplyFirstSeenAddonDefaults()
     if RegisterNativeSettingsPanel() then

@@ -50,7 +50,7 @@ local function OnAddOnLoaded(_, addonName)
         EZOCore.InitializeSettings()
     end
 
-    EZOCore:Info("%s v%s initialized (local service phase).", EZOCore.name, EZOCore.version)
+    EZOCore:Debug("%s v%s initialized.", EZOCore.name, EZOCore.version)
     EZOCore:FireCallback(EZOCore.EVENT_INITIALIZED, EZOCore)
     EZOCore:FireCallback("EZOCore:Initialized", EZOCore)
 end

@@ -138,7 +138,7 @@ function EZOCore:RegisterAddon(metadata)
     }
 
     local record = CopyAddonRecord(addons[addonId])
-    self:Info("Addon registered: %s v%s", addonId, metadata.version)
+    self:Debug("Addon registered: %s v%s", addonId, metadata.version)
     self:FireCallback(self.EVENT_ADDON_REGISTERED, record)
     self:FireCallback("EZOCore:AddonRegistered", record)
     return true
@@ -209,7 +209,7 @@ function EZOCore:RegisterService(name, apiVersion, service)
         service = service,
     }
 
-    self:Info("Service registered: %s (API v%d)", name, apiVersion)
+    self:Debug("Service registered: %s (API v%d)", name, apiVersion)
     self:FireCallback(self.EVENT_SERVICE_REGISTERED, name, apiVersion)
     self:FireCallback("EZOCore:ServiceRegistered", name, apiVersion)
     return true

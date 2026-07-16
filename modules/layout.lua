@@ -14,6 +14,7 @@ local EVENT_SURFACE_CHANGED = "EZOCore:LayoutSurfaceChanged"
 local surfacesById = {}
 local surfaceOrder = {}
 local initialized = false
+local warnedFailures = {}
 
 local function IsNonEmptyString(value)
     return type(value) == "string" and value ~= ""
@@ -43,14 +44,55 @@ local function ResolveText(value, fallback)
     return fallback
 end
 
+local function ResolveArgument(first, second)
+    if second ~= nil then
+        return second
+    end
+    return first
+end
+
+local function ResolveTwoArguments(first, second, third)
+    if third ~= nil then
+        return second, third
+    end
+    return first, second
+end
+
+local function WarnFailureOnce(surface, action, err)
+    local surfaceId = surface and surface.id or "unknown"
+    local key = surfaceId .. ":" .. tostring(action)
+    if warnedFailures[key] then
+        EZOCore:Debug("Layout surface '%s' failed %s: %s", surfaceId, action, tostring(err))
+        return
+    end
+
+    warnedFailures[key] = true
+    EZOCore:Warn("Layout surface '%s' failed %s: %s", surfaceId, action, tostring(err))
+end
+
+local function CallSurfaceCallback(surface, action, callback, ...)
+    local ok, result = pcall(callback, ...)
+    if ok then
+        return true, result
+    end
+
+    local firstError = result
+    ok, result = pcall(callback, surface, ...)
+    if ok then
+        return true, result
+    end
+
+    WarnFailureOnce(surface, action, firstError)
+    return false, result
+end
+
 local function ReadEditMode(surface)
     if not surface or type(surface.isEditMode) ~= "function" then
         return false
     end
 
-    local ok, enabled = pcall(surface.isEditMode)
+    local ok, enabled = CallSurfaceCallback(surface, "to report edit mode", surface.isEditMode)
     if not ok then
-        EZOCore:Warn("Layout surface '%s' failed to report edit mode", surface.id)
         return false
     end
     return enabled == true
@@ -61,9 +103,8 @@ local function CanEnable(surface)
         return true
     end
 
-    local ok, allowed = pcall(surface.canEdit)
+    local ok, allowed = CallSurfaceCallback(surface, "its edit-mode availability check", surface.canEdit)
     if not ok then
-        EZOCore:Warn("Layout surface '%s' failed its edit-mode availability check", surface.id)
         return false
     end
     return allowed ~= false
@@ -82,7 +123,8 @@ local function CopySurface(surface)
     }
 end
 
-function LAYOUT.RegisterSurface(_, definition)
+function LAYOUT.RegisterSurface(first, second)
+    local definition = ResolveArgument(first, second)
     if type(definition) ~= "table" then
         EZOCore:Warn("RegisterSurface: definition must be a table")
         return false
@@ -128,7 +170,7 @@ function LAYOUT.RegisterSurface(_, definition)
         canEdit = definition.canEdit,
     }
 
-    EZOCore:Info("Layout surface registered: %s", surfaceId)
+    EZOCore:Debug("Layout surface registered: %s", surfaceId)
     EZOCore:FireCallback(EVENT_SURFACE_REGISTERED, surfaceId, addonId)
     return true
 end
@@ -156,11 +198,13 @@ function LAYOUT.GetSurfaces()
     return result
 end
 
-function LAYOUT.IsSurfaceEditMode(_, surfaceId)
+function LAYOUT.IsSurfaceEditMode(first, second)
+    local surfaceId = ResolveArgument(first, second)
     return ReadEditMode(surfacesById[NormalizeId(surfaceId)])
 end
 
-function LAYOUT.SetSurfaceEditMode(_, surfaceId, enabled)
+function LAYOUT.SetSurfaceEditMode(first, second, third)
+    local surfaceId, enabled = ResolveTwoArguments(first, second, third)
     local surface = surfacesById[NormalizeId(surfaceId)]
     if not surface then
         return false
@@ -171,9 +215,8 @@ function LAYOUT.SetSurfaceEditMode(_, surfaceId, enabled)
         return false
     end
 
-    local ok, result = pcall(surface.setEditMode, enabled)
+    local ok, result = CallSurfaceCallback(surface, "to change edit mode", surface.setEditMode, enabled)
     if not ok then
-        EZOCore:Warn("Layout surface '%s' failed to change edit mode", surface.id)
         return false
     end
 
@@ -185,7 +228,8 @@ function LAYOUT.SetSurfaceEditMode(_, surfaceId, enabled)
     return actual == enabled
 end
 
-function LAYOUT.SetAllEditMode(_, enabled)
+function LAYOUT.SetAllEditMode(first, second)
+    local enabled = ResolveArgument(first, second)
     local success = true
     for _, surfaceId in ipairs(surfaceOrder) do
         if not LAYOUT:SetSurfaceEditMode(surfaceId, enabled == true) then
@@ -224,8 +268,9 @@ function LAYOUT.Initialize()
     end
     initialized = true
 
-    if EVENT_MANAGER and EVENT_PLAYER_DEACTIVATED then
-        EVENT_MANAGER:RegisterForEvent(EVENT_NAMESPACE, EVENT_PLAYER_DEACTIVATED, function()
+    local playerDeactivatedEvent = _G.EVENT_PLAYER_DEACTIVATED
+    if EVENT_MANAGER and playerDeactivatedEvent then
+        EVENT_MANAGER:RegisterForEvent(EVENT_NAMESPACE, playerDeactivatedEvent, function()
             LAYOUT:SetAllEditMode(false)
         end)
     end
