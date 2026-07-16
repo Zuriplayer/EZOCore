@@ -31,7 +31,7 @@ if EZOCore and type(EZOCore.RegisterAddon) == "function" then
         name = "EZOTools",
         version = EZOTools.ADDON_VERSION,
         addOnVersion = EZOTools.ADDON_VERSION_NUMERIC,
-        apiVersion = 1,
+        apiVersion = 2,
         capabilities = {
             "group.activities",
             "group.activityState.provider",
@@ -159,7 +159,12 @@ if groupPresence then
         activityType = "trial",
         stage = "staging",
         result = "active",
+        difficulty = "veteran",
         sessionId = 1,
+        progressCurrent = 3,
+        progressTotal = 6,
+        pendingCount = 10,
+        expectedCount = 11,
         ttlSeconds = 60,
         targetKey = "example",
     })
@@ -185,6 +190,8 @@ named values; the corresponding compact wire codes are also exposed with a
 `Code` suffix. Producers can listen for `EZO_CORE_GROUP_PRESENCE_REQUESTED` and
 republish their current state after presence resynchronization. These are local
 EZOCore callbacks, not LibGroupBroadcast registrations owned by the consumer.
+Consumers that open after a callback can read the same validated state through
+`groupPresence:GetPeerActivityState(unitTag)` until its TTL expires.
 
 The final two arguments are the minimum local API version and optional minimum
 numeric `AddOnVersion`. Use the latter for build compatibility; do not compare
@@ -201,10 +208,10 @@ addon is absent until a valid presence for that current group member exists.
 EZOCore refreshes presence every 45 seconds while grouped and resets transient
 sequence state when a sender starts a new session.
 
-The reserved IDs and wire format are documented in
+The beta IDs and wire format are documented in
 [group-presence-protocol.md](group-presence-protocol.md). The protocol is
-`EZO_CORE_GROUP_V1` (`513`) and the resync custom event is
-`EZO_CORE_GROUP_REQUEST_V1` (`3`).
+`EZO_CORE_GROUP_V2` (temporary local test ID `511`) and the resync custom event is
+`EZO_CORE_GROUP_REQUEST_V1` (temporary local test event `39`).
 
 ## Use Shared Diagnostics
 

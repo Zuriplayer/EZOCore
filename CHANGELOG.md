@@ -4,6 +4,35 @@ All notable changes to EZOCore are documented in this file.
 
 ## Unreleased
 
+## [0.1.15] - 2026-07-16
+
+### Added
+
+- Added a TTL-bound activity-state cache and `GetPeerActivityState(unitTag)` so
+  late-opening consumers can read the last validated leader state.
+- Added compact difficulty, real progress, pending-member and expected-member
+  fields to the informational group activity payload.
+
+### Changed
+
+- Advanced the temporary beta wire schema and protocol name to
+  `EZO_CORE_GROUP_V2`. Both test clients must use the same beta build.
+
+## [0.1.14] - 2026-07-15
+
+### Fixed
+
+- Fixed LibGroupBroadcast initialization by removing the duplicate handler alias
+  that matched the EZOCore addon name and was rejected by the library.
+- Switched the beta transport to LibGroupBroadcast's designated local test ID
+  `511`; the previously registered `513` cannot be serialized by the library's
+  9-bit protocol ID field. A permanent valid ID remains pending before release.
+- Switched the beta resync event to LibGroupBroadcast's designated test event
+  ID `39`; installed Hodor Reflexes already declares event ID `3`, despite the
+  conflicting registry entry.
+- Added explicit LibDebugLogger diagnostics for group transport initialization
+  success and failure.
+
 ## [0.1.13] - 2026-07-15
 
 ### Fixed

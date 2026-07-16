@@ -31,7 +31,7 @@ if EZOCore and type(EZOCore.RegisterAddon) == "function" then
         name = "EZOTools",
         version = EZOTools.ADDON_VERSION,
         addOnVersion = EZOTools.ADDON_VERSION_NUMERIC,
-        apiVersion = 1,
+        apiVersion = 2,
         capabilities = {
             "group.activities",
             "group.activityState.provider",
@@ -161,7 +161,12 @@ if groupPresence then
         activityType = "trial",
         stage = "staging",
         result = "active",
+        difficulty = "veteran",
         sessionId = 1,
+        progressCurrent = 3,
+        progressTotal = 6,
+        pendingCount = 10,
+        expectedCount = 11,
         ttlSeconds = 60,
         targetKey = "example",
     })
@@ -188,6 +193,9 @@ se exponen con el sufijo `Code`. Los productores pueden escuchar
 `EZO_CORE_GROUP_PRESENCE_REQUESTED` y volver a publicar su estado actual después
 de resincronizar presencia. Son callbacks locales de EZOCore, no registros de
 LibGroupBroadcast propiedad del consumidor.
+Los consumidores que se abren después de un callback pueden leer el mismo estado
+validado mediante `groupPresence:GetPeerActivityState(unitTag)` hasta que caduque
+su TTL.
 
 Los dos últimos argumentos son la versión mínima de la API local y el
 `AddOnVersion` numérico mínimo opcional. Usa este último para compatibilidad de
@@ -206,10 +214,10 @@ EZOCore renueva la presencia cada 45 segundos mientras el jugador está en grupo
 y reinicia el estado transitorio de secuencias cuando un emisor comienza una
 sesión nueva.
 
-Los IDs reservados y el formato por red estan documentados en
+Los IDs beta y el formato por red estan documentados en
 [group-presence-protocol.es.md](group-presence-protocol.es.md). El protocolo es
-`EZO_CORE_GROUP_V1` (`513`) y el custom event de resincronizacion es
-`EZO_CORE_GROUP_REQUEST_V1` (`3`).
+`EZO_CORE_GROUP_V2` (ID temporal de prueba local `511`) y el custom event de resincronizacion es
+`EZO_CORE_GROUP_REQUEST_V1` (evento temporal de prueba local `39`).
 
 ## Usar Diagnostico Comun
 

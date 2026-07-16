@@ -8,7 +8,7 @@ EZOCore.GroupPresence = GROUP_PRESENCE
 local SERVICE_NAME = "family.groupPresence"
 local SERVICE_API_VERSION = 1
 
-local PRESENCE_PROTOCOL_VERSION = 1
+local PRESENCE_PROTOCOL_VERSION = 2
 local PEER_TTL_SECONDS = 90
 local PRESENCE_HEARTBEAT_MS = 45000
 local MAX_WIRE_ADDONS = 16
@@ -16,11 +16,14 @@ local SEQUENCE_MODULUS = 65536
 local SEQUENCE_HALF_RANGE = SEQUENCE_MODULUS / 2
 local SESSION_ID_MODULUS = 16777216
 
-local LGB_HANDLER_NAME = "EZOCore"
 local LGB_PROTOCOL_READY = true
-local LGB_PROTOCOL_ID = 513
-local LGB_PROTOCOL_NAME = "EZO_CORE_GROUP_V1"
-local LGB_REQUEST_EVENT_ID = 3
+local LGB_PROTOCOL_ID = 511
+local LGB_PROTOCOL_ID_MAX = 511
+local LGB_PROTOCOL_IS_TEST_ID = true
+local LGB_PROTOCOL_NAME = "EZO_CORE_GROUP_V2"
+local LGB_REQUEST_EVENT_ID = 39
+local LGB_REQUEST_EVENT_ID_MAX = 39
+local LGB_REQUEST_EVENT_IS_TEST_ID = true
 local LGB_REQUEST_EVENT_NAME = "EZO_CORE_GROUP_REQUEST_V1"
 
 local WIRE_MESSAGE_TYPES = {
@@ -52,6 +55,12 @@ local WIRE_ACTIVITY_RESULTS = {
     cancelled = 3,
     failed = 4,
     interrupted = 5,
+}
+
+local WIRE_ACTIVITY_DIFFICULTIES = {
+    unknown = 0,
+    normal = 1,
+    veteran = 2,
 }
 
 local WIRE_PRIVACY_STATES = {
@@ -114,6 +123,7 @@ end
 
 local peersByUnitTag = {}
 local activitySequenceByUnitTag = {}
+local activityStateByUnitTag = {}
 local performanceSequenceByUnitTag = {}
 local performanceStateByUnitTag = {}
 local performancePublishedAtBySourceKey = {}
@@ -281,7 +291,38 @@ local function CopyPeer(peer)
         receivedAt = peer.receivedAt,
         expiresAt = peer.expiresAt,
         addons = addons,
+        activityState = nil,
         performanceState = nil,
+    }
+end
+
+local function CopyActivityState(state)
+    if type(state) ~= "table" then
+        return nil
+    end
+    return {
+        unitTag = state.unitTag,
+        protocolVersion = state.protocolVersion,
+        sequence = state.sequence,
+        sourceAddonKey = state.sourceAddonKey,
+        sourceAddonId = state.sourceAddonId,
+        activityType = state.activityType,
+        activityTypeCode = state.activityTypeCode,
+        stage = state.stage,
+        stageCode = state.stageCode,
+        result = state.result,
+        resultCode = state.resultCode,
+        difficulty = state.difficulty,
+        difficultyCode = state.difficultyCode,
+        sessionId = state.sessionId,
+        progressCurrent = state.progressCurrent,
+        progressTotal = state.progressTotal,
+        pendingCount = state.pendingCount,
+        expectedCount = state.expectedCount,
+        ttlSeconds = state.ttlSeconds,
+        targetKey = state.targetKey,
+        receivedAt = state.receivedAt,
+        expiresAt = state.expiresAt,
     }
 end
 
@@ -416,6 +457,7 @@ end
 
 local function ClearPeerTransientState(unitTag)
     activitySequenceByUnitTag[unitTag] = nil
+    activityStateByUnitTag[unitTag] = nil
     performanceSequenceByUnitTag[unitTag] = nil
     performanceStateByUnitTag[unitTag] = nil
 end
@@ -485,7 +527,12 @@ local function AddGroupProtocolFields(targetProtocol, lgb)
             lgb.CreateNumericField("activityType", { minValue = 0, maxValue = 15 }),
             lgb.CreateNumericField("stage", { minValue = 0, maxValue = 31 }),
             lgb.CreateNumericField("result", { minValue = 0, maxValue = 31 }),
+            lgb.CreateNumericField("difficulty", { minValue = 0, maxValue = 3 }),
             lgb.CreateNumericField("sessionId", { minValue = 0, maxValue = 4294967295 }),
+            lgb.CreateNumericField("progressCurrent", { minValue = 0, maxValue = 15 }),
+            lgb.CreateNumericField("progressTotal", { minValue = 0, maxValue = 15 }),
+            lgb.CreateNumericField("pendingCount", { minValue = 0, maxValue = 12 }),
+            lgb.CreateNumericField("expectedCount", { minValue = 0, maxValue = 12 }),
             lgb.CreateNumericField("ttlSeconds", { minValue = 15, maxValue = 300 }),
             lgb.CreateStringField("targetKey", { minLength = 0, maxLength = 32 }),
         }),
@@ -507,7 +554,11 @@ local function RefreshStatus()
     status.available = lgb ~= nil
     status.configured = LGB_PROTOCOL_READY == true
         and type(LGB_PROTOCOL_ID) == "number"
+        and LGB_PROTOCOL_ID >= 0
+        and LGB_PROTOCOL_ID <= LGB_PROTOCOL_ID_MAX
         and type(LGB_REQUEST_EVENT_ID) == "number"
+        and LGB_REQUEST_EVENT_ID >= 0
+        and LGB_REQUEST_EVENT_ID <= LGB_REQUEST_EVENT_ID_MAX
     status.active = status.available and status.configured and protocol ~= nil
 
     if not status.available then
@@ -606,6 +657,7 @@ local function HandleRemoteActivityState(unitTag, data)
     local previousActivity = activitySequenceByUnitTag[unitTag]
     if previousActivity and IsStateExpired(previousActivity, now) then
         activitySequenceByUnitTag[unitTag] = nil
+        activityStateByUnitTag[unitTag] = nil
         previousActivity = nil
     end
     local previousActivitySequence = previousActivity
@@ -618,7 +670,14 @@ local function HandleRemoteActivityState(unitTag, data)
         or not IsKnownEnumValue(WIRE_ACTIVITY_TYPES, data.activityType)
         or not IsKnownEnumValue(WIRE_ACTIVITY_STAGES, data.stage)
         or not IsKnownEnumValue(WIRE_ACTIVITY_RESULTS, data.result)
+        or not IsKnownEnumValue(WIRE_ACTIVITY_DIFFICULTIES, data.difficulty)
         or not IsIntegerInRange(data.sessionId, 0, 4294967295)
+        or not IsIntegerInRange(data.progressCurrent, 0, 15)
+        or not IsIntegerInRange(data.progressTotal, 0, 15)
+        or data.progressCurrent > data.progressTotal
+        or not IsIntegerInRange(data.pendingCount, 0, 12)
+        or not IsIntegerInRange(data.expectedCount, 0, 12)
+        or data.pendingCount > data.expectedCount
         or type(data.targetKey) ~= "string"
         or #data.targetKey > 32 then
         return false
@@ -639,7 +698,8 @@ local function HandleRemoteActivityState(unitTag, data)
         sequence = data.sequence,
         expiresAt = now + data.ttlSeconds,
     }
-    local state = {
+    activityStateByUnitTag[unitTag] = {
+        unitTag = unitTag,
         protocolVersion = data.protocolVersion,
         sequence = data.sequence,
         sourceAddonKey = data.sourceAddonKey,
@@ -650,13 +710,26 @@ local function HandleRemoteActivityState(unitTag, data)
         stageCode = data.stage,
         result = GetEnumName(WIRE_ACTIVITY_RESULTS, data.result),
         resultCode = data.result,
+        difficulty = GetEnumName(WIRE_ACTIVITY_DIFFICULTIES, data.difficulty),
+        difficultyCode = data.difficulty,
         sessionId = data.sessionId,
+        progressCurrent = data.progressCurrent,
+        progressTotal = data.progressTotal,
+        pendingCount = data.pendingCount,
+        expectedCount = data.expectedCount,
         ttlSeconds = data.ttlSeconds,
         targetKey = data.targetKey,
         receivedAt = now,
+        expiresAt = now + data.ttlSeconds,
     }
-    EZOCore:FireCallback("EZO_CORE_GROUP_ACTIVITY_STATE_UPDATED", unitTag, state)
-    EZOCore:FireCallback("EZOCore:GroupActivityStateUpdated", unitTag, state)
+    EZOCore:FireCallback(
+        "EZO_CORE_GROUP_ACTIVITY_STATE_UPDATED",
+        unitTag,
+        CopyActivityState(activityStateByUnitTag[unitTag]))
+    EZOCore:FireCallback(
+        "EZOCore:GroupActivityStateUpdated",
+        unitTag,
+        CopyActivityState(activityStateByUnitTag[unitTag]))
     return true
 end
 
@@ -751,7 +824,7 @@ local function RegisterLibGroupBroadcast()
     end
 
     local ok, registerError = pcall(function()
-        handler = lgb:RegisterHandler("EZOCore", LGB_HANDLER_NAME)
+        handler = lgb:RegisterHandler("EZOCore")
         handler:SetDisplayName("EZOCore")
         handler:SetDescription("EZO family group presence and informational state")
         protocol = handler:DeclareProtocol(LGB_PROTOCOL_ID, LGB_PROTOCOL_NAME)
@@ -783,8 +856,16 @@ local function RegisterLibGroupBroadcast()
         protocol = nil
         firePresenceRequest = nil
         status.detail = tostring(registerError or "unknown registration error")
+        EZOCore:Warn("Group presence transport initialization failed: %s", status.detail)
     else
         status.detail = nil
+        EZOCore:Info(
+            "Group presence transport active: protocol %s (%d), request event %d%s",
+            LGB_PROTOCOL_NAME,
+            LGB_PROTOCOL_ID,
+            LGB_REQUEST_EVENT_ID,
+            (LGB_PROTOCOL_IS_TEST_ID or LGB_REQUEST_EVENT_IS_TEST_ID) and " [beta test IDs]" or ""
+        )
     end
 
     RefreshStatus()
@@ -871,6 +952,10 @@ function GROUP_PRESENCE.GetStatus()
         heartbeatMilliseconds = PRESENCE_HEARTBEAT_MS,
         protocolName = LGB_PROTOCOL_NAME,
         requestEventName = LGB_REQUEST_EVENT_NAME,
+        protocolId = LGB_PROTOCOL_ID,
+        requestEventId = LGB_REQUEST_EVENT_ID,
+        protocolTestId = LGB_PROTOCOL_IS_TEST_ID,
+        requestEventTestId = LGB_REQUEST_EVENT_IS_TEST_ID,
     }
 end
 
@@ -883,7 +968,9 @@ function GROUP_PRESENCE.GetProtocolSpec()
         requestEventName = LGB_REQUEST_EVENT_NAME,
         protocolReady = LGB_PROTOCOL_READY,
         protocolId = LGB_PROTOCOL_ID,
+        protocolTestId = LGB_PROTOCOL_IS_TEST_ID,
         requestEventId = LGB_REQUEST_EVENT_ID,
+        requestEventTestId = LGB_REQUEST_EVENT_IS_TEST_ID,
         ttlSeconds = PEER_TTL_SECONDS,
         heartbeatMilliseconds = PRESENCE_HEARTBEAT_MS,
         messageTypes = {
@@ -894,6 +981,7 @@ function GROUP_PRESENCE.GetProtocolSpec()
         activityTypes = WIRE_ACTIVITY_TYPES,
         activityStages = WIRE_ACTIVITY_STAGES,
         activityResults = WIRE_ACTIVITY_RESULTS,
+        activityDifficulties = WIRE_ACTIVITY_DIFFICULTIES,
         privacyStates = WIRE_PRIVACY_STATES,
         addonKeys = ADDON_KEYS,
         capabilityBits = CAPABILITY_BITS,
@@ -910,7 +998,9 @@ function GROUP_PRESENCE.GetReservationDraft()
         customEventName = LGB_REQUEST_EVENT_NAME,
         customEventId = LGB_REQUEST_EVENT_ID,
         customEventDescription = "Requests an EZO group presence/state resync from compatible group members.",
-        status = "reserved on the official ESOUI LibGroupBroadcast ID registry",
+        status = (LGB_PROTOCOL_IS_TEST_ID or LGB_REQUEST_EVENT_IS_TEST_ID)
+            and "temporary beta test IDs; permanent valid reservations pending"
+            or "reserved on the official ESOUI LibGroupBroadcast ID registry",
     }
 end
 
@@ -934,7 +1024,11 @@ function GROUP_PRESENCE.GetRemotePeers()
     local out = {}
     for _, peer in pairs(peersByUnitTag) do
         local copiedPeer = CopyPeer(peer)
+        local activityState = activityStateByUnitTag[peer.unitTag]
         local performanceState = performanceStateByUnitTag[peer.unitTag]
+        if copiedPeer and not IsStateExpired(activityState, NowSeconds()) then
+            copiedPeer.activityState = CopyActivityState(activityState)
+        end
         if copiedPeer and not IsStateExpired(performanceState, NowSeconds()) then
             copiedPeer.performanceState = CopyPerformanceState(performanceState)
         end
@@ -949,11 +1043,26 @@ end
 function GROUP_PRESENCE.GetRemotePeer(_, unitTag)
     GROUP_PRESENCE.PrunePeers()
     local peer = CopyPeer(peersByUnitTag[unitTag])
+    local activityState = activityStateByUnitTag[unitTag]
     local performanceState = performanceStateByUnitTag[unitTag]
+    if peer and not IsStateExpired(activityState, NowSeconds()) then
+        peer.activityState = CopyActivityState(activityState)
+    end
     if peer and not IsStateExpired(performanceState, NowSeconds()) then
         peer.performanceState = CopyPerformanceState(performanceState)
     end
     return peer
+end
+
+function GROUP_PRESENCE.GetPeerActivityState(_, unitTag)
+    GROUP_PRESENCE.PrunePeers()
+    local state = activityStateByUnitTag[unitTag]
+    if IsStateExpired(state, NowSeconds()) then
+        activityStateByUnitTag[unitTag] = nil
+        activitySequenceByUnitTag[unitTag] = nil
+        return nil
+    end
+    return CopyActivityState(state)
 end
 
 function GROUP_PRESENCE.GetPeerPerformanceState(_, unitTag)
@@ -1032,12 +1141,17 @@ function GROUP_PRESENCE.PublishActivityState(first, second)
     local activityType = NormalizeEnumValue(WIRE_ACTIVITY_TYPES, state.activityType)
     local stage = NormalizeEnumValue(WIRE_ACTIVITY_STAGES, state.stage)
     local result = NormalizeEnumValue(WIRE_ACTIVITY_RESULTS, state.result)
+    local difficulty = NormalizeEnumValue(WIRE_ACTIVITY_DIFFICULTIES, state.difficulty or "unknown")
     local sessionId = math.floor(tonumber(state.sessionId) or 0)
+    local progressCurrent = math.floor(tonumber(state.progressCurrent) or 0)
+    local progressTotal = math.floor(tonumber(state.progressTotal) or 0)
+    local pendingCount = math.floor(tonumber(state.pendingCount) or 0)
+    local expectedCount = math.floor(tonumber(state.expectedCount) or 0)
     local targetKey = tostring(state.targetKey or "")
     if not sourceAddonKey then
         return false, "invalidSourceAddon"
     end
-    if not activityType or not stage or not result then
+    if not activityType or not stage or not result or not difficulty then
         return false, "invalidActivityState"
     end
     if not IsIntegerInRange(sessionId, 0, 4294967295) then
@@ -1045,6 +1159,16 @@ function GROUP_PRESENCE.PublishActivityState(first, second)
     end
     if #targetKey > 32 then
         return false, "invalidTargetKey"
+    end
+    if not IsIntegerInRange(progressCurrent, 0, 15)
+        or not IsIntegerInRange(progressTotal, 0, 15)
+        or progressCurrent > progressTotal then
+        return false, "invalidActivityProgress"
+    end
+    if not IsIntegerInRange(pendingCount, 0, 12)
+        or not IsIntegerInRange(expectedCount, 0, 12)
+        or pendingCount > expectedCount then
+        return false, "invalidActivityCounts"
     end
     local sourceAddonId = ADDON_ID_BY_KEY[sourceAddonKey]
     local presence = EZOCore.Presence
@@ -1073,7 +1197,12 @@ function GROUP_PRESENCE.PublishActivityState(first, second)
         activityType = activityType,
         stage = stage,
         result = result,
+        difficulty = difficulty,
         sessionId = sessionId,
+        progressCurrent = progressCurrent,
+        progressTotal = progressTotal,
+        pendingCount = pendingCount,
+        expectedCount = expectedCount,
         ttlSeconds = NormalizeTtlSeconds(state.ttlSeconds, 60),
         targetKey = targetKey,
     } }, false)

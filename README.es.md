@@ -12,7 +12,7 @@ EZOCore está actualmente en **beta pública** como capa de servicios compartido
 - Es propietario del menú central `Settings > EZO` para la configuración de los addons de la familia EZO, con cabeceras informativas estándar de EZO.
 - Proporciona un modo de idioma común para la familia EZO: automático, inglés, español o "dejar que cada addon elija"; los addons independientes conservan su fallback propio cuando EZOCore no está instalado o el modo central permite opciones locales.
 - Coordina modos temporales de movimiento global e individual para los addons EZO que registran superficies HUD compatibles; las previsualizaciones permanecen ocultas en Settings y aparecen al volver al HUD principal.
-- Es el único propietario del transporte LibGroupBroadcast de la familia EZO: `EZO_CORE_GROUP_V1` (`513`) y `EZO_CORE_GROUP_REQUEST_V1` (`3`). Estando en grupo, los clientes con EZOCore y el protocolo habilitado en LibGroupBroadcast pueden intercambiar presencia compacta de addons, builds numéricas, capacidades, estado de actividad y estado opcional de rendimiento. Consulta [docs/group-presence-protocol.es.md](docs/group-presence-protocol.es.md).
+- Es el único propietario del transporte LibGroupBroadcast de la familia EZO: `EZO_CORE_GROUP_V2` (ID temporal de prueba beta `511`) y `EZO_CORE_GROUP_REQUEST_V1` (evento temporal de prueba beta `39`). Estando en grupo, los clientes con EZOCore y el protocolo habilitado en LibGroupBroadcast pueden intercambiar presencia compacta de addons, builds numéricas, capacidades, estado de actividad y estado opcional de rendimiento. Consulta [docs/group-presence-protocol.es.md](docs/group-presence-protocol.es.md).
 - No hay automatización remota disparada desde dentro del juego; los GitHub Actions de este repositorio son workflows manuales, disparados por el desarrollador, para empaquetar y publicar el estado en Discord.
 - Beta pública significa que el repositorio está visible para revisión/pruebas y que el transporte de presencia de grupo todavía necesita pruebas con varios clientes antes de que otros addons dependan de él para comportamientos visibles.
 
@@ -63,7 +63,7 @@ Los ejemplos de integración para consumidores viven en [docs/consumer-integrati
 - `family.settings` API v1: registro central en `Settings > EZO`, navegación y controles de carga de addons instalados.
 - `family.presence` API v1: fachada local de presencia sobre addons EZO registrados, versiones y capacidades.
 - `family.localState` API v1: intercambio de estado local de sesión entre addons EZO en el mismo cliente.
-- `family.groupPresence` API v1: fachada de presencia remota entre peers usando el protocolo reservado de LibGroupBroadcast `EZO_CORE_GROUP_V1` (`513`) y el evento de solicitud `EZO_CORE_GROUP_REQUEST_V1` (`3`).
+- `family.groupPresence` API v1: fachada de presencia remota entre peers usando el protocolo de LibGroupBroadcast `EZO_CORE_GROUP_V2` (ID temporal de prueba beta `511`) y el evento de solicitud `EZO_CORE_GROUP_REQUEST_V1` (evento temporal de prueba beta `39`). Conserva el estado de actividad validado hasta que caduca su TTL para consumidores que se abren más tarde.
 - `family.language` API v1: preferencia local de idioma compartida para addons de la familia EZO.
 - `family.debug` API v1: acceso común opcional a LibDebugLogger y DebugLogViewer, sin fallback al chat ni trabajo en ejecución cuando el backend no está disponible.
 - `family.layout` API v1: registro de sesión y coordinación global e individual del movimiento para superficies HUD EZO compatibles.
@@ -94,7 +94,7 @@ rendimiento no públicos nunca exponen ping ni FPS.
 
 ## Hoja de ruta (todavía no implementado)
 
-EZOTools ya puede publicar y mostrar estado compacto de Actividades de grupo mediante este servicio. Fases futuras podrán conectar EZOGroupFrames y añadir acciones de miembros con activación expresa. El estado informativo de actividad y rendimiento no permite viajes remotos, invitaciones, cambios de grupo ni otras acciones automatizadas.
+EZOTools ya puede publicar y mostrar estado compacto de Actividades de grupo mediante este servicio. Su consumidor puede reaccionar localmente y de forma opcional solicitando un único viaje al líder actual después de que el jugador acepte manualmente la invitación de grupo; EZOCore sigue exponiendo solo información y nunca ejecuta el viaje. Fases futuras podrán conectar EZOGroupFrames. El estado informativo de actividad y rendimiento no concede autoridad para viajes remotos, invitaciones, cambios de grupo ni automatizaciones.
 
 ## Soporte
 

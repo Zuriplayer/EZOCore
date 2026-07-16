@@ -1,13 +1,14 @@
 # EZO Core Group Protocol
 
-Status: IDs reserved on the official ESOUI LibGroupBroadcast registry. The
-transport can register when LibGroupBroadcast is available and enabled.
+Status: beta transport validation. Protocol ID `511` is the official local-test
+slot. Custom event ID `39` is the equivalent official test slot. Both must be
+replaced by valid permanent registrations before public release.
 
 EZOCore uses one LibGroupBroadcast protocol for EZO-family group presence
 and small informational activity-state messages. Functional EZO addons continue
 to work without EZOCore and without LibGroupBroadcast.
 
-## Reserved IDs
+## Beta IDs
 
 Official registry: https://wiki.esoui.com/LibGroupBroadcast_IDs
 
@@ -15,16 +16,16 @@ Official registry: https://wiki.esoui.com/LibGroupBroadcast_IDs
 | --- | --- |
 | Addon | EZOCore |
 | Author | @Zuriplayer |
-| Protocol name | `EZO_CORE_GROUP_V1` |
-| Protocol ID | `513` |
+| Protocol name | `EZO_CORE_GROUP_V2` |
+| Protocol ID | `511` (temporary local beta test ID) |
 | Description | EZO family group presence and compact informational group state, including activity and optional performance status. |
 | Custom event name | `EZO_CORE_GROUP_REQUEST_V1` |
-| Custom event ID | `3` |
+| Custom event ID | `39` (temporary local beta test event) |
 | Custom event description | Requests an EZO group presence/state resync from compatible group members. |
 
 ## Protocol Shape
 
-Protocol: `EZO_CORE_GROUP_V1`
+Protocol: `EZO_CORE_GROUP_V2`
 
 Top-level field:
 
@@ -86,17 +87,23 @@ not a remote-command channel.
 | `activityType` | 0-15 |
 | `stage` | 0-31 |
 | `result` | 0-31 |
+| `difficulty` | 0-3 |
 | `sessionId` | 0-4294967295 |
+| `progressCurrent` | 0-15 |
+| `progressTotal` | 0-15 |
+| `pendingCount` | 0-12 |
+| `expectedCount` | 0-12 |
 | `ttlSeconds` | 15-300 |
 | `targetKey` | string, 0-32 |
 
-Accepted enum values in protocol v1:
+Accepted enum values in protocol v2:
 
 | Field | Values |
 | --- | --- |
 | `activityType` | `0 unknown`, `1 trial`, `2 dungeon`, `3 arena` |
 | `stage` | `0 idle`, `1 staging`, `2 returning`, `3 waitingMembers`, `4 complete`, `5 failed` |
 | `result` | `0 unknown`, `1 active`, `2 complete`, `3 cancelled`, `4 failed`, `5 interrupted` |
+| `difficulty` | `0 unknown`, `1 normal`, `2 veteran` |
 
 The first consumer is expected to be EZOTools. The prepared receiver accepts
 activity state only from the current group leader, after a valid presence from
@@ -104,6 +111,11 @@ that peer proves that the source addon exposes
 `group.activityState.provider`. It also validates sequence freshness, TTL,
 known enum values and payload bounds before firing local callbacks. This is
 informational state only and never authorizes a remote action.
+
+EZOCore retains the last validated activity state until its TTL expires and
+exposes it through `GetPeerActivityState(unitTag)`. This prevents consumers
+that register after the callback from inventing fallback state while waiting
+for a resynchronization.
 
 ### `performanceState`
 
@@ -120,7 +132,7 @@ display badges. It is informational only.
 | `privacyState` | 0-7 |
 | `ttlSeconds` | 15-300 |
 
-Accepted privacy values in protocol v1:
+Accepted privacy values in protocol v2:
 
 | Value | Meaning |
 | --- | --- |
@@ -192,9 +204,9 @@ Builds can still report normal unavailable states such as
 `requestEventDisabled` or `notGrouped`. Consumers must treat those as normal and
 avoid unsolicited chat warnings.
 
-The implementation uses only LibGroupBroadcast's public field factories. The
-protocol and request event use the numeric IDs reserved in the official
-registry.
+The implementation uses only LibGroupBroadcast's public field factories.
+Protocol ID `511` and custom event ID `39` are temporary test slots and must be
+replaced by valid permanent registrations before release.
 
 Presence, activity and performance share one VariantField protocol. Sends do
 not use LibGroupBroadcast's protocol-wide queued-message replacement because a
@@ -211,4 +223,5 @@ Public consumer helpers:
 
 - `GetRemotePeer(unitTag)`
 - `GetRemotePeers()`
+- `GetPeerActivityState(unitTag)`
 - `GetPeerPerformanceState(unitTag)`

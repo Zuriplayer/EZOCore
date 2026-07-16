@@ -1,13 +1,15 @@
 # Protocolo De Grupo De EZOCore
 
-Estado: IDs reservados en el registro oficial de LibGroupBroadcast de ESOUI. El
-transporte puede registrarse cuando LibGroupBroadcast esta disponible y activo.
+Estado: validacion beta del transporte. El protocol ID `511` es el espacio
+oficial para pruebas locales. El custom event ID `39` es el espacio oficial
+equivalente para eventos de prueba. Ambos deben sustituirse por registros
+permanentes validos antes de una release publica.
 
 EZOCore usa un unico protocolo de LibGroupBroadcast para presencia de
 grupo de la familia EZO y mensajes pequenos de estado informativo. Los addons
 funcionales de EZO siguen funcionando sin EZOCore y sin LibGroupBroadcast.
 
-## IDs Reservados
+## IDs Beta
 
 Registro oficial: https://wiki.esoui.com/LibGroupBroadcast_IDs
 
@@ -15,16 +17,16 @@ Registro oficial: https://wiki.esoui.com/LibGroupBroadcast_IDs
 | --- | --- |
 | Addon | EZOCore |
 | Autor | @Zuriplayer |
-| Nombre de protocolo | `EZO_CORE_GROUP_V1` |
-| Protocol ID | `513` |
+| Nombre de protocolo | `EZO_CORE_GROUP_V2` |
+| Protocol ID | `511` (ID temporal para pruebas beta locales) |
 | Descripcion | Presencia de grupo de la familia EZO y estado informativo compacto de grupo, incluyendo actividad y estado opcional de rendimiento. |
 | Nombre de custom event | `EZO_CORE_GROUP_REQUEST_V1` |
-| Custom event ID | `3` |
+| Custom event ID | `39` (evento temporal para pruebas beta locales) |
 | Descripcion del custom event | Solicita resincronizacion de presencia/estado EZO a miembros compatibles del grupo. |
 
 ## Forma Del Protocolo
 
-Protocolo: `EZO_CORE_GROUP_V1`
+Protocolo: `EZO_CORE_GROUP_V2`
 
 Campo de primer nivel:
 
@@ -89,17 +91,23 @@ Activities. No es un canal de comandos remotos.
 | `activityType` | 0-15 |
 | `stage` | 0-31 |
 | `result` | 0-31 |
+| `difficulty` | 0-3 |
 | `sessionId` | 0-4294967295 |
+| `progressCurrent` | 0-15 |
+| `progressTotal` | 0-15 |
+| `pendingCount` | 0-12 |
+| `expectedCount` | 0-12 |
 | `ttlSeconds` | 15-300 |
 | `targetKey` | string, 0-32 |
 
-Valores de enum aceptados en el protocolo v1:
+Valores de enum aceptados en el protocolo v2:
 
 | Campo | Valores |
 | --- | --- |
 | `activityType` | `0 unknown`, `1 trial`, `2 dungeon`, `3 arena` |
 | `stage` | `0 idle`, `1 staging`, `2 returning`, `3 waitingMembers`, `4 complete`, `5 failed` |
 | `result` | `0 unknown`, `1 active`, `2 complete`, `3 cancelled`, `4 failed`, `5 interrupted` |
+| `difficulty` | `0 unknown`, `1 normal`, `2 veteran` |
 
 El primer consumidor previsto es EZOTools. El receptor preparado solo acepta
 estado de actividad del líder actual del grupo, después de que una presencia
@@ -107,6 +115,11 @@ válida de ese peer demuestre que el addon emisor expone
 `group.activityState.provider`. También valida la secuencia, el TTL, los enums
 conocidos y los límites del payload antes de disparar callbacks locales. Este
 estado es solo informativo y nunca autoriza una acción remota.
+
+EZOCore conserva el último estado de actividad validado hasta que caduca su TTL
+y lo expone mediante `GetPeerActivityState(unitTag)`. Esto evita que los
+consumidores que se registran después del callback inventen estados provisionales
+mientras esperan una resincronización.
 
 ### `performanceState`
 
@@ -123,7 +136,7 @@ badges visuales en EZOGroupFrames. Es solo informativo.
 | `privacyState` | 0-7 |
 | `ttlSeconds` | 15-300 |
 
-Valores de privacidad aceptados en el protocolo v1:
+Valores de privacidad aceptados en el protocolo v2:
 
 | Valor | Significado |
 | --- | --- |
@@ -197,8 +210,9 @@ Las builds pueden seguir devolviendo estados normales de no disponibilidad como
 estados normales y evitar avisos no solicitados en chat.
 
 La implementación usa únicamente las fábricas públicas de campos de
-LibGroupBroadcast. El protocolo y el evento de solicitud usan los IDs numéricos
-reservados en el registro oficial.
+LibGroupBroadcast. El protocol ID `511` y el custom event ID `39` son espacios
+temporales de prueba y deben sustituirse por registros permanentes válidos antes
+de la release.
 
 Presencia, actividad y rendimiento comparten un protocolo VariantField. Los
 envíos no usan el reemplazo de mensajes en cola por protocolo de
@@ -215,4 +229,5 @@ Ayudas públicas para consumidores:
 
 - `GetRemotePeer(unitTag)`
 - `GetRemotePeers()`
+- `GetPeerActivityState(unitTag)`
 - `GetPeerPerformanceState(unitTag)`
