@@ -4,6 +4,25 @@ All notable changes to EZOCore are documented in this file.
 
 ## Unreleased
 
+## [0.1.18] - 2026-07-16
+
+### Added
+
+- Added structured `alertEvent` messages to `family.groupPresence` for short EZO-family group alerts.
+- Added `family.groupPresence:PublishAlertEvent(...)` for registered producer addons.
+- Added `EZO_CORE_GROUP_ALERT_EVENT_RECEIVED` / `EZOCore:GroupAlertEventReceived` callbacks for local consumers.
+- Added `alerts.groupEvent.provider` and `alerts.groupEvent.consumer` capability bits.
+
+## [0.1.17] - 2026-07-16
+
+### Changed
+
+- `family.groupPresence:GetStatus()` now reports a disabled LibGroupBroadcast protocol as inactive.
+- Non-public performance states bypass the public-metric throttle so consumers can withdraw shared metrics promptly.
+- Duplicate non-public states are throttled without resetting the public publication throttle.
+- The presence heartbeat remains installed while the shared protocol exists and resumes automatically when its user setting is re-enabled.
+- Valid performance samples that arrive before presence are held for at most 15 seconds and exposed only after the sender capability is validated.
+
 ## [0.1.16] - 2026-07-16
 
 ### Added

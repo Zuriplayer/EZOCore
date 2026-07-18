@@ -6,7 +6,7 @@ equivalente para eventos de prueba. Ambos deben sustituirse por registros
 permanentes validos antes de una release publica.
 
 EZOCore usa un unico protocolo de LibGroupBroadcast para presencia de
-grupo de la familia EZO y mensajes pequenos de estado informativo. Los addons
+grupo de la familia EZO y mensajes pequenos de estado informativo o alerta. Los addons
 funcionales de EZO siguen funcionando sin EZOCore y sin LibGroupBroadcast.
 
 ## IDs Beta
@@ -19,7 +19,7 @@ Registro oficial: https://wiki.esoui.com/LibGroupBroadcast_IDs
 | Autor | @Zuriplayer |
 | Nombre de protocolo | `EZO_CORE_GROUP_V2` |
 | Protocol ID | `511` (ID temporal para pruebas beta locales) |
-| Descripcion | Presencia de grupo de la familia EZO y estado informativo compacto de grupo, incluyendo actividad y estado opcional de rendimiento. |
+| Descripcion | Presencia de grupo de la familia EZO y estado informativo compacto de grupo, incluyendo actividad, alerta y estado opcional de rendimiento. |
 | Nombre de custom event | `EZO_CORE_GROUP_REQUEST_V1` |
 | Custom event ID | `39` (evento temporal para pruebas beta locales) |
 | Descripcion del custom event | Solicita resincronizacion de presencia/estado EZO a miembros compatibles del grupo. |
@@ -35,6 +35,7 @@ VariantField:
   presence
   activityState
   performanceState
+  alertEvent
 ```
 
 La variante `performanceState` es opcional. Los productores deben exponer opt-in
@@ -151,7 +152,60 @@ de ese peer demuestre que el addon emisor expone
 `PublishPerformanceState(...)` y limita la publicación a una vez cada 10 segundos
 por clave de addon emisor. Solo el estado público transporta el ping y los FPS
 indicados. Los demás estados permiten omitir las métricas y tanto el emisor como
-el receptor las normalizan a cero.
+el receptor las normalizan a cero. Los estados no públicos omiten el throttle de
+métricas públicas para que un productor pueda sustituir cuanto antes los datos
+compartidos por una retirada `hidden` al desactivarse el opt-in. Los estados no
+públicos idénticos y repetidos tienen un throttle independiente y no reinician
+la marca temporal de publicación pública.
+
+Una muestra de rendimiento estructuralmente válida puede llegar antes que el
+payload de presencia, que es más grande. EZOCore conserva como máximo la muestra
+más reciente por unit tag durante 15 segundos y solo la expone después de que una
+presencia válida demuestre la capacidad del proveedor. Si esa validación no llega
+a tiempo, la muestra se descarta.
+
+### `alertEvent`
+
+Reservado para eventos de alerta breves y estructurados de la familia EZO, por
+ejemplo avisos de cofres y sacos pesados de EZOAlerts. Es solo informativo y no
+es texto libre para chat.
+
+| Campo | Rango / formato |
+| --- | --- |
+| `protocolVersion` | 1-15 |
+| `sequence` | 1-65535, con control de desbordamiento |
+| `sourceAddonKey` | clave estable de addon EZO, 1-63 |
+| `eventType` | 0-15 |
+| `quality` | 0-15 |
+| `ttlSeconds` | 15-60 |
+| `actorName` | string, 0-40 |
+
+Tipos de evento aceptados en el protocolo v2:
+
+| Valor | Significado |
+| --- | --- |
+| `0` | unknown |
+| `1` | chest |
+| `2` | heavySack |
+
+Valores de calidad aceptados en el protocolo v2:
+
+| Valor | Significado |
+| --- | --- |
+| `0` | unknown |
+| `1` | simple |
+| `2` | intermediate |
+| `3` | advanced |
+| `4` | master |
+| `5` | impossible |
+
+El receptor valida el unit tag emisor, la version de protocolo, la secuencia,
+el TTL, el tipo de evento, la calidad, la clave del addon emisor y la longitud
+del nombre del actor. Si ya se conoce una presencia compatible del peer, el addon
+emisor debe exponer `alerts.groupEvent.provider`. Los eventos validados disparan
+`EZO_CORE_GROUP_ALERT_EVENT_RECEIVED` y `EZOCore:GroupAlertEventReceived`.
+EZOCore no localiza ni dibuja la alerta; el addon receptor decide visibilidad,
+texto y comportamiento de interfaz.
 
 ## Claves Estables De Addons
 
@@ -201,6 +255,8 @@ solo es la representacion compacta por red.
 | 17 | `pvp.travel` |
 | 18 | `group.performanceState.provider` |
 | 19 | `group.performanceState.consumer` |
+| 20 | `alerts.groupEvent.provider` |
+| 21 | `alerts.groupEvent.consumer` |
 
 ## Contrato Actual En Ejecucion
 
@@ -214,16 +270,19 @@ LibGroupBroadcast. El protocol ID `511` y el custom event ID `39` son espacios
 temporales de prueba y deben sustituirse por registros permanentes válidos antes
 de la release.
 
-Presencia, actividad y rendimiento comparten un protocolo VariantField. Los
+Presencia, actividad, rendimiento y eventos de alerta comparten un protocolo VariantField. Los
 envíos no usan el reemplazo de mensajes en cola por protocolo de
 LibGroupBroadcast, porque una variante nueva eliminaría otra variante distinta
 en cola con el mismo ID. Presencia y rendimiento opcional se marcan como
-relevantes en combate; actividad mantiene el comportamiento fuera de combate.
+relevantes en combate; actividad mantiene el comportamiento fuera de combate; los
+eventos de alerta se marcan como relevantes en combate para no retrasar avisos
+breves relacionados con botin.
 
 Métodos públicos productores de `family.groupPresence`:
 
 - `PublishActivityState(state)`
 - `PublishPerformanceState(state)`
+- `PublishAlertEvent(state)`
 
 Ayudas públicas para consumidores:
 

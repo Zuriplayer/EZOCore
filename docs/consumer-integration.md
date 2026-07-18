@@ -148,6 +148,11 @@ if status and status.active then
 end
 ```
 
+`active` is true only when LibGroupBroadcast is available, the shared protocol
+is registered and its user setting is enabled. `enabled` exposes that protocol
+setting directly; `reason` reports normal unavailable states such as
+`protocolDisabled`.
+
 Producers must publish through EZOCore, not by declaring LibGroupBroadcast
 handlers directly:
 
@@ -176,13 +181,31 @@ if groupPresence then
         privacyState = "public",
         ttlSeconds = 30,
     })
+
+    groupPresence:PublishAlertEvent({
+        sourceAddonId = "ezoalerts",
+        eventType = "chest",
+        quality = "advanced",
+        actorName = "Character Name",
+        ttlSeconds = 15,
+    })
 end
 ```
 
 `privacyState = "public"` requires valid ping and FPS values. For `unknown`,
 `private` or `hidden`, metrics may be omitted and EZOCore transmits zeros. The
 producer remains responsible for exposing an explicit opt-in before publishing
-performance state.
+performance state. When that opt-in is disabled, the producer should immediately
+queue a `hidden` state. Non-public states bypass the public-metric throttle so
+this withdrawal is not held back by that throttle. Repeated identical
+non-public states are still limited, and a withdrawal does not reset the
+public-state throttle.
+
+Alert events are short structured payloads for compatible EZO addons, not free
+chat text. Current event types are `chest` and `heavySack`; current qualities
+are `unknown`, `simple`, `intermediate`, `advanced`, `master` and `impossible`.
+The receiving addon must localize the message, apply its own visibility rules
+and render or ignore the event locally.
 
 Consumers receive validated activity state through
 `EZO_CORE_GROUP_ACTIVITY_STATE_UPDATED`. Its activity type, stage and result are
@@ -192,6 +215,13 @@ republish their current state after presence resynchronization. These are local
 EZOCore callbacks, not LibGroupBroadcast registrations owned by the consumer.
 Consumers that open after a callback can read the same validated state through
 `groupPresence:GetPeerActivityState(unitTag)` until its TTL expires.
+
+Consumers receive validated alert events through
+`EZO_CORE_GROUP_ALERT_EVENT_RECEIVED`. The callback carries named
+`eventType`, named `quality`, the compact codes with a `Code` suffix, the
+sender unit tag, `sourceAddonId`, `actorName` and TTL timestamps. These are
+local EZOCore callbacks, not LibGroupBroadcast registrations owned by the
+consumer.
 
 The final two arguments are the minimum local API version and optional minimum
 numeric `AddOnVersion`. Use the latter for build compatibility; do not compare

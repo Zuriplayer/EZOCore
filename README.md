@@ -13,7 +13,7 @@ EZOCore is currently a **public beta** shared-service layer:
 - It provides a shared EZO-family language mode: automatic, English, Spanish, or "let each addon choose"; standalone addons keep their own fallback when EZOCore is not installed or the central mode allows local choices.
 - It coordinates temporary global and per-window movement modes for EZO addons that register compatible HUD surfaces; previews remain hidden in Settings and appear after returning to the main HUD.
 - It can disable every debug or diagnostic mode registered by loaded EZO addons without taking ownership of their settings or enabling modes centrally.
-- It owns the only EZO-family LibGroupBroadcast transport: `EZO_CORE_GROUP_V2` (temporary beta test ID `511`) and `EZO_CORE_GROUP_REQUEST_V1` (temporary beta test event `39`). While grouped, clients with EZOCore and an enabled LibGroupBroadcast protocol can exchange compact addon presence, numeric builds, capabilities, activity state and optional performance status. See [docs/group-presence-protocol.md](docs/group-presence-protocol.md).
+- It owns the only EZO-family LibGroupBroadcast transport: `EZO_CORE_GROUP_V2` (temporary beta test ID `511`) and `EZO_CORE_GROUP_REQUEST_V1` (temporary beta test event `39`). While grouped, clients with EZOCore and an enabled LibGroupBroadcast protocol can exchange compact addon presence, numeric builds, capabilities, activity state, optional performance status and short structured alert events. See [docs/group-presence-protocol.md](docs/group-presence-protocol.md).
 - There is no remote automation triggered from inside the game; the GitHub Actions in this repo are manual, developer-triggered workflows for packaging and Discord status updates.
 - Public beta means the repository is visible for review/testing and the group-presence transport still requires multi-client testing before other addons depend on it for player-facing behavior.
 
@@ -66,7 +66,7 @@ Consumer integration examples live in [docs/consumer-integration.md](docs/consum
 - `family.settings` API v1: central `Settings > EZO` registration, navigation and installed-addon load controls.
 - `family.presence` API v1: local presence facade over registered EZO addons, versions and capabilities.
 - `family.localState` API v1: session-only local state exchange between EZO addons in the same client.
-- `family.groupPresence` API v1: remote peer presence facade using LibGroupBroadcast protocol `EZO_CORE_GROUP_V2` (temporary beta test ID `511`) and request event `EZO_CORE_GROUP_REQUEST_V1` (temporary beta test event `39`). It caches validated activity state until TTL expiry for late-opening consumers.
+- `family.groupPresence` API v1: remote peer presence facade using LibGroupBroadcast protocol `EZO_CORE_GROUP_V2` (temporary beta test ID `511`) and request event `EZO_CORE_GROUP_REQUEST_V1` (temporary beta test event `39`). It caches validated activity state until TTL expiry for late-opening consumers and can carry short structured alert events for compatible EZO addons.
 - `family.language` API v1: shared local language preference for EZO-family addons.
 - `family.debug` API v1: optional shared LibDebugLogger and DebugLogViewer access plus registration of addon-owned debug controllers for one-way family-wide shutdown, with no polling or central SavedVariables.
 - `family.layout` API v1: session-only registration plus global and individual movement coordination for compatible EZO HUD surfaces.
@@ -74,11 +74,13 @@ Consumer integration examples live in [docs/consumer-integration.md](docs/consum
 
 The `family.groupPresence` service exposes readiness/specification
 queries, remote peer/addon lookups, capability/build compatibility checks,
-presence announcement, activity/performance publication, remote performance
+presence announcement, activity/performance/alert publication, remote performance
 lookup and resync requests. Announcement and request methods return a reason
 without sending when the transport, group or corresponding LibGroupBroadcast
 user setting is unavailable. Active grouped clients renew presence every 45
-seconds; non-public performance states never expose ping or FPS values.
+seconds; non-public performance states never expose ping or FPS values. Alert
+events are compact enum payloads; the receiving addon owns localization,
+visibility and rendering.
 
 ## Requirements
 
@@ -95,7 +97,7 @@ seconds; non-public performance states never expose ping or FPS values.
 
 ## Roadmap (not implemented yet)
 
-EZOTools can publish and display compact Group Activities state through this service. Its consumer may optionally react locally by requesting one trip to the current leader after the player has manually accepted the group invitation; EZOCore still exposes information only and never executes the trip. Future phases may connect EZOGroupFrames. Informational activity and performance state do not grant remote travel, invitation, group-change or automation authority.
+EZOTools can publish and display compact Group Activities state through this service. Its consumer may optionally react locally by requesting one trip to the current leader after the player has manually accepted the group invitation; EZOCore still exposes information only and never executes the trip. EZOAlerts can use the structured alert-event payload for temporary local HUD notices on compatible clients. Future phases may connect EZOGroupFrames. Informational activity, alert and performance state do not grant remote travel, invitation, group-change, chat-send or automation authority.
 
 ## Support
 

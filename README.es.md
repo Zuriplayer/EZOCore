@@ -13,7 +13,7 @@ EZOCore está actualmente en **beta pública** como capa de servicios compartido
 - Proporciona un modo de idioma común para la familia EZO: automático, inglés, español o "dejar que cada addon elija"; los addons independientes conservan su fallback propio cuando EZOCore no está instalado o el modo central permite opciones locales.
 - Coordina modos temporales de movimiento global e individual para los addons EZO que registran superficies HUD compatibles; las previsualizaciones permanecen ocultas en Settings y aparecen al volver al HUD principal.
 - Puede desactivar todos los modos debug o de diagnóstico registrados por addons EZO cargados sin apropiarse de sus ajustes ni activar modos de forma central.
-- Es el único propietario del transporte LibGroupBroadcast de la familia EZO: `EZO_CORE_GROUP_V2` (ID temporal de prueba beta `511`) y `EZO_CORE_GROUP_REQUEST_V1` (evento temporal de prueba beta `39`). Estando en grupo, los clientes con EZOCore y el protocolo habilitado en LibGroupBroadcast pueden intercambiar presencia compacta de addons, builds numéricas, capacidades, estado de actividad y estado opcional de rendimiento. Consulta [docs/group-presence-protocol.es.md](docs/group-presence-protocol.es.md).
+- Es el único propietario del transporte LibGroupBroadcast de la familia EZO: `EZO_CORE_GROUP_V2` (ID temporal de prueba beta `511`) y `EZO_CORE_GROUP_REQUEST_V1` (evento temporal de prueba beta `39`). Estando en grupo, los clientes con EZOCore y el protocolo habilitado en LibGroupBroadcast pueden intercambiar presencia compacta de addons, builds numéricas, capacidades, estado de actividad, estado opcional de rendimiento y eventos estructurados breves de alerta. Consulta [docs/group-presence-protocol.es.md](docs/group-presence-protocol.es.md).
 - No hay automatización remota disparada desde dentro del juego; los GitHub Actions de este repositorio son workflows manuales, disparados por el desarrollador, para empaquetar y publicar el estado en Discord.
 - Beta pública significa que el repositorio está visible para revisión/pruebas y que el transporte de presencia de grupo todavía necesita pruebas con varios clientes antes de que otros addons dependan de él para comportamientos visibles.
 
@@ -66,7 +66,7 @@ Los ejemplos de integración para consumidores viven en [docs/consumer-integrati
 - `family.settings` API v1: registro central en `Settings > EZO`, navegación y controles de carga de addons instalados.
 - `family.presence` API v1: fachada local de presencia sobre addons EZO registrados, versiones y capacidades.
 - `family.localState` API v1: intercambio de estado local de sesión entre addons EZO en el mismo cliente.
-- `family.groupPresence` API v1: fachada de presencia remota entre peers usando el protocolo de LibGroupBroadcast `EZO_CORE_GROUP_V2` (ID temporal de prueba beta `511`) y el evento de solicitud `EZO_CORE_GROUP_REQUEST_V1` (evento temporal de prueba beta `39`). Conserva el estado de actividad validado hasta que caduca su TTL para consumidores que se abren más tarde.
+- `family.groupPresence` API v1: fachada de presencia remota entre peers usando el protocolo de LibGroupBroadcast `EZO_CORE_GROUP_V2` (ID temporal de prueba beta `511`) y el evento de solicitud `EZO_CORE_GROUP_REQUEST_V1` (evento temporal de prueba beta `39`). Conserva el estado de actividad validado hasta que caduca su TTL para consumidores que se abren más tarde y puede transportar eventos estructurados breves de alerta para addons EZO compatibles.
 - `family.language` API v1: preferencia local de idioma compartida para addons de la familia EZO.
 - `family.debug` API v1: acceso común opcional a LibDebugLogger y DebugLogViewer, más registro de controladores debug propiedad de cada addon para el apagado familiar unidireccional, sin polling ni SavedVariables centrales.
 - `family.layout` API v1: registro de sesión y coordinación global e individual del movimiento para superficies HUD EZO compatibles.
@@ -75,12 +75,14 @@ Los ejemplos de integración para consumidores viven en [docs/consumer-integrati
 El servicio `family.groupPresence` expone consultas de estado y
 especificación, consulta de peers/addons remotos, comprobaciones de
 compatibilidad por capacidad/build, anuncio de presencia, publicación de
-actividad/rendimiento, consulta de rendimiento remoto y solicitud de
+actividad/rendimiento/alertas, consulta de rendimiento remoto y solicitud de
 resincronización. Los métodos de anuncio y solicitud devuelven un motivo sin
 enviar cuando el transporte, el grupo o el ajuste correspondiente del usuario
 en LibGroupBroadcast no están disponibles. Los clientes agrupados con el
 transporte activo renuevan presencia cada 45 segundos; los estados de
-rendimiento no públicos nunca exponen ping ni FPS.
+rendimiento no públicos nunca exponen ping ni FPS. Los eventos de alerta son
+payloads compactos con enums; el addon receptor conserva la responsabilidad de
+localizarlos, decidir su visibilidad y dibujarlos.
 
 ## Requisitos
 
@@ -97,7 +99,7 @@ rendimiento no públicos nunca exponen ping ni FPS.
 
 ## Hoja de ruta (todavía no implementado)
 
-EZOTools ya puede publicar y mostrar estado compacto de Actividades de grupo mediante este servicio. Su consumidor puede reaccionar localmente y de forma opcional solicitando un único viaje al líder actual después de que el jugador acepte manualmente la invitación de grupo; EZOCore sigue exponiendo solo información y nunca ejecuta el viaje. Fases futuras podrán conectar EZOGroupFrames. El estado informativo de actividad y rendimiento no concede autoridad para viajes remotos, invitaciones, cambios de grupo ni automatizaciones.
+EZOTools ya puede publicar y mostrar estado compacto de Actividades de grupo mediante este servicio. Su consumidor puede reaccionar localmente y de forma opcional solicitando un único viaje al líder actual después de que el jugador acepte manualmente la invitación de grupo; EZOCore sigue exponiendo solo información y nunca ejecuta el viaje. EZOAlerts puede usar el payload estructurado de eventos de alerta para avisos HUD temporales en clientes compatibles. Fases futuras podrán conectar EZOGroupFrames. El estado informativo de actividad, alertas y rendimiento no concede autoridad para viajes remotos, invitaciones, cambios de grupo, envío de chat ni automatizaciones.
 
 ## Soporte
 

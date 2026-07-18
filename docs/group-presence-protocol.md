@@ -5,7 +5,7 @@ slot. Custom event ID `39` is the equivalent official test slot. Both must be
 replaced by valid permanent registrations before public release.
 
 EZOCore uses one LibGroupBroadcast protocol for EZO-family group presence
-and small informational activity-state messages. Functional EZO addons continue
+and small informational activity-state or alert messages. Functional EZO addons continue
 to work without EZOCore and without LibGroupBroadcast.
 
 ## Beta IDs
@@ -18,7 +18,7 @@ Official registry: https://wiki.esoui.com/LibGroupBroadcast_IDs
 | Author | @Zuriplayer |
 | Protocol name | `EZO_CORE_GROUP_V2` |
 | Protocol ID | `511` (temporary local beta test ID) |
-| Description | EZO family group presence and compact informational group state, including activity and optional performance status. |
+| Description | EZO family group presence and compact informational group state, including activity, alert and optional performance status. |
 | Custom event name | `EZO_CORE_GROUP_REQUEST_V1` |
 | Custom event ID | `39` (temporary local beta test event) |
 | Custom event description | Requests an EZO group presence/state resync from compatible group members. |
@@ -34,6 +34,7 @@ VariantField:
   presence
   activityState
   performanceState
+  alertEvent
 ```
 
 The `performanceState` variant is optional. Producers must expose an explicit
@@ -146,7 +147,57 @@ peer proves that the source addon exposes `group.performanceState.provider`.
 EZOCore exposes `PublishPerformanceState(...)` and throttles publication to at
 most once every 10 seconds per source addon key. Only the public state carries
 the supplied ping and FPS. Other privacy states accept omitted metrics and both
-the sender and receiver normalize them to zero.
+the sender and receiver normalize them to zero. Non-public states bypass the
+public-metric throttle so a producer can promptly replace shared metrics with a
+`hidden` withdrawal when the user disables its opt-in. Repeated identical
+non-public states are throttled independently, and they do not reset the public
+publication timestamp.
+
+A structurally valid performance sample may arrive before the sender's larger
+presence payload. EZOCore holds at most the newest such sample per unit tag for
+15 seconds and exposes it only after a valid presence proves the provider
+capability. It is discarded if that validation does not arrive in time.
+
+### `alertEvent`
+
+Reserved for short structured EZO-family alert events such as EZOAlerts chest
+and heavy-sack notices. It is informational only and is not free chat text.
+
+| Field | Range / format |
+| --- | --- |
+| `protocolVersion` | 1-15 |
+| `sequence` | 1-65535, wrap-aware |
+| `sourceAddonKey` | stable EZO addon key, 1-63 |
+| `eventType` | 0-15 |
+| `quality` | 0-15 |
+| `ttlSeconds` | 15-60 |
+| `actorName` | string, 0-40 |
+
+Accepted event types in protocol v2:
+
+| Value | Meaning |
+| --- | --- |
+| `0` | unknown |
+| `1` | chest |
+| `2` | heavySack |
+
+Accepted quality values in protocol v2:
+
+| Value | Meaning |
+| --- | --- |
+| `0` | unknown |
+| `1` | simple |
+| `2` | intermediate |
+| `3` | advanced |
+| `4` | master |
+| `5` | impossible |
+
+The receiver validates sender unit, protocol version, sequence, TTL, event type,
+quality, source addon key and actor name length. If compatible peer presence is
+already known, the source addon must expose `alerts.groupEvent.provider`.
+Validated events fire `EZO_CORE_GROUP_ALERT_EVENT_RECEIVED` and
+`EZOCore:GroupAlertEventReceived`. EZOCore does not localize or render the
+alert; the receiving addon owns visibility, text and UI behavior.
 
 ## Stable Addon Keys
 
@@ -196,6 +247,8 @@ wire representation.
 | 17 | `pvp.travel` |
 | 18 | `group.performanceState.provider` |
 | 19 | `group.performanceState.consumer` |
+| 20 | `alerts.groupEvent.provider` |
+| 21 | `alerts.groupEvent.consumer` |
 
 ## Current Runtime Contract
 
@@ -208,16 +261,18 @@ The implementation uses only LibGroupBroadcast's public field factories.
 Protocol ID `511` and custom event ID `39` are temporary test slots and must be
 replaced by valid permanent registrations before release.
 
-Presence, activity and performance share one VariantField protocol. Sends do
+Presence, activity, performance and alert events share one VariantField protocol. Sends do
 not use LibGroupBroadcast's protocol-wide queued-message replacement because a
 new variant would otherwise delete a different queued variant with the same
 protocol ID. Presence and optional performance messages are marked relevant in
-combat; activity messages retain the non-combat default.
+combat; activity messages retain the non-combat default; alert events are marked
+relevant in combat so short loot-related notices are not delayed.
 
 Public `family.groupPresence` producer methods:
 
 - `PublishActivityState(state)`
 - `PublishPerformanceState(state)`
+- `PublishAlertEvent(state)`
 
 Public consumer helpers:
 

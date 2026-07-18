@@ -30,6 +30,7 @@ local WIRE_MESSAGE_TYPES = {
     presence = 1,
     activityState = 2,
     performanceState = 3,
+    alertEvent = 4,
 }
 
 local WIRE_ACTIVITY_TYPES = {
@@ -68,6 +69,21 @@ local WIRE_PRIVACY_STATES = {
     public = 1,
     private = 2,
     hidden = 3,
+}
+
+local WIRE_ALERT_EVENT_TYPES = {
+    unknown = 0,
+    chest = 1,
+    heavySack = 2,
+}
+
+local WIRE_ALERT_QUALITIES = {
+    unknown = 0,
+    simple = 1,
+    intermediate = 2,
+    advanced = 3,
+    master = 4,
+    impossible = 5,
 }
 
 -- Stable wire keys keep presence messages compact. Never reuse a retired key.
@@ -114,6 +130,8 @@ local CAPABILITY_BITS = {
     ["pvp.travel"] = 17,
     ["group.performanceState.provider"] = 18,
     ["group.performanceState.consumer"] = 19,
+    ["alerts.groupEvent.provider"] = 20,
+    ["alerts.groupEvent.consumer"] = 21,
 }
 
 local CAPABILITY_BY_BIT = {}
@@ -126,7 +144,11 @@ local activitySequenceByUnitTag = {}
 local activityStateByUnitTag = {}
 local performanceSequenceByUnitTag = {}
 local performanceStateByUnitTag = {}
+local pendingPerformanceByUnitTag = {}
+local alertSequenceByUnitTag = {}
 local performancePublishedAtBySourceKey = {}
+local performanceNonPublicPublishedAtBySourceKey = {}
+local performancePrivacyStateBySourceKey = {}
 local sequence = 0
 local presenceSessionId = math.random(0, SESSION_ID_MODULUS - 1)
 if type(_G.GetFrameTimeMilliseconds) == "function" then
@@ -138,6 +160,7 @@ local HEARTBEAT_UPDATE_NAME = "EZOCore_GroupPresenceHeartbeat"
 local handler
 local protocol
 local firePresenceRequest
+local HandleRemotePerformanceState
 local status = {
     available = false,
     configured = false,
@@ -460,6 +483,8 @@ local function ClearPeerTransientState(unitTag)
     activityStateByUnitTag[unitTag] = nil
     performanceSequenceByUnitTag[unitTag] = nil
     performanceStateByUnitTag[unitTag] = nil
+    pendingPerformanceByUnitTag[unitTag] = nil
+    alertSequenceByUnitTag[unitTag] = nil
 end
 
 local function ResolveDisplayName(unitTag)
@@ -545,6 +570,15 @@ local function AddGroupProtocolFields(targetProtocol, lgb)
             lgb.CreateNumericField("privacyState", { minValue = 0, maxValue = 7 }),
             lgb.CreateNumericField("ttlSeconds", { minValue = 15, maxValue = 300 }),
         }),
+        lgb.CreateTableField("alertEvent", {
+            lgb.CreateNumericField("protocolVersion", { minValue = 1, maxValue = 15 }),
+            lgb.CreateNumericField("sequence", { minValue = 1, maxValue = 65535 }),
+            lgb.CreateNumericField("sourceAddonKey", { minValue = 1, maxValue = 63 }),
+            lgb.CreateNumericField("eventType", { minValue = 0, maxValue = 15 }),
+            lgb.CreateNumericField("quality", { minValue = 0, maxValue = 15 }),
+            lgb.CreateNumericField("ttlSeconds", { minValue = 15, maxValue = 60 }),
+            lgb.CreateStringField("actorName", { minLength = 0, maxLength = 40 }),
+        }),
     }, { maxNumVariants = 8 }))
     return true
 end
@@ -559,7 +593,13 @@ local function RefreshStatus()
         and type(LGB_REQUEST_EVENT_ID) == "number"
         and LGB_REQUEST_EVENT_ID >= 0
         and LGB_REQUEST_EVENT_ID <= LGB_REQUEST_EVENT_ID_MAX
-    status.active = status.available and status.configured and protocol ~= nil
+    local protocolEnabled = false
+    if protocol and type(protocol.IsEnabled) == "function" then
+        local ok, enabled = pcall(protocol.IsEnabled, protocol)
+        protocolEnabled = ok and enabled == true
+    end
+    status.enabled = protocolEnabled
+    status.active = status.available and status.configured and protocolEnabled
 
     if not status.available then
         status.reason = "libGroupBroadcastMissing"
@@ -567,8 +607,10 @@ local function RefreshStatus()
         status.reason = "protocolDefinitionPending"
     elseif not status.configured then
         status.reason = "reservedIdsMissing"
-    elseif not status.active then
+    elseif not protocol then
         status.reason = "transportNotInitialized"
+    elseif not protocolEnabled then
+        status.reason = "protocolDisabled"
     else
         status.reason = "active"
     end
@@ -614,6 +656,7 @@ local function HandleRemotePresence(unitTag, data)
 
     local now = NowSeconds()
     local previous = peersByUnitTag[unitTag]
+    local pendingPerformance = pendingPerformanceByUnitTag[unitTag]
     local incomingSequence = data.sequence
     local previousSequence = previous and previous.sessionId == data.sessionId and previous.sequence or nil
     if not IsNewerSequence(incomingSequence, previousSequence) then
@@ -643,6 +686,11 @@ local function HandleRemotePresence(unitTag, data)
 
     EZOCore:FireCallback("EZO_CORE_GROUP_PRESENCE_UPDATED", CopyPeer(peersByUnitTag[unitTag]))
     EZOCore:FireCallback("EZOCore:GroupPresenceUpdated", CopyPeer(peersByUnitTag[unitTag]))
+
+    pendingPerformanceByUnitTag[unitTag] = nil
+    if pendingPerformance and not IsStateExpired(pendingPerformance, now) then
+        HandleRemotePerformanceState(unitTag, pendingPerformance.data, false)
+    end
     return true
 end
 
@@ -733,25 +781,78 @@ local function HandleRemoteActivityState(unitTag, data)
     return true
 end
 
-local function HandleRemotePerformanceState(unitTag, data)
+local function HandleRemoteAlertEvent(unitTag, data)
     if not IsCurrentGroupUnit(unitTag) or type(data) ~= "table" then
         return false
     end
 
     local now = NowSeconds()
-    local previousPerformance = performanceSequenceByUnitTag[unitTag]
-    if previousPerformance and IsStateExpired(previousPerformance, now) then
-        performanceSequenceByUnitTag[unitTag] = nil
-        performanceStateByUnitTag[unitTag] = nil
-        previousPerformance = nil
+    local previousAlert = alertSequenceByUnitTag[unitTag]
+    if previousAlert and IsStateExpired(previousAlert, now) then
+        alertSequenceByUnitTag[unitTag] = nil
+        previousAlert = nil
     end
-    local previousPerformanceSequence = previousPerformance and previousPerformance.sequence or nil
+
     if data.protocolVersion ~= PRESENCE_PROTOCOL_VERSION
-        or not IsNewerSequence(data.sequence, previousPerformanceSequence)
+        or not IsNewerSequence(data.sequence, previousAlert and previousAlert.sequence)
+        or not IsIntegerInRange(data.ttlSeconds, 15, 60)
+        or not IsKnownEnumValue(WIRE_ALERT_EVENT_TYPES, data.eventType)
+        or not IsKnownEnumValue(WIRE_ALERT_QUALITIES, data.quality)
+        or not ResolveAddonKey(data.sourceAddonKey)
+        or type(data.actorName) ~= "string"
+        or #data.actorName > 40 then
+        return false
+    end
+
+    local sourceAddonId = ADDON_ID_BY_KEY[data.sourceAddonKey]
+    local peer = peersByUnitTag[unitTag]
+    local sourceAddon = peer and sourceAddonId and peer.addons[sourceAddonId]
+    if peer and not IsPeerExpired(peer, now) then
+        if not sourceAddon
+            or not sourceAddon.capabilitySet
+            or sourceAddon.capabilitySet["alerts.groupEvent.provider"] ~= true then
+            return false
+        end
+    end
+
+    local event = {
+        unitTag = unitTag,
+        protocolVersion = data.protocolVersion,
+        sequence = data.sequence,
+        sourceAddonKey = data.sourceAddonKey,
+        sourceAddonId = sourceAddonId,
+        eventType = GetEnumName(WIRE_ALERT_EVENT_TYPES, data.eventType),
+        eventTypeCode = data.eventType,
+        quality = GetEnumName(WIRE_ALERT_QUALITIES, data.quality),
+        qualityCode = data.quality,
+        actorName = data.actorName,
+        ttlSeconds = data.ttlSeconds,
+        receivedAt = now,
+        expiresAt = now + data.ttlSeconds,
+    }
+
+    alertSequenceByUnitTag[unitTag] = {
+        sequence = data.sequence,
+        expiresAt = event.expiresAt,
+    }
+    EZOCore:FireCallback("EZO_CORE_GROUP_ALERT_EVENT_RECEIVED", unitTag, event)
+    EZOCore:FireCallback("EZOCore:GroupAlertEventReceived", unitTag, event)
+    return true
+end
+
+HandleRemotePerformanceState = function(unitTag, data, allowPending)
+    if not IsCurrentGroupUnit(unitTag) or type(data) ~= "table" then
+        return false
+    end
+
+    local now = NowSeconds()
+    if data.protocolVersion ~= PRESENCE_PROTOCOL_VERSION
+        or not IsIntegerInRange(data.sequence, 1, SEQUENCE_MODULUS - 1)
         or not IsIntegerInRange(data.ttlSeconds, 15, 300)
         or not IsIntegerInRange(data.pingMs, 0, 4095)
         or not IsIntegerInRange(data.fps, 0, 255)
-        or not IsKnownEnumValue(WIRE_PRIVACY_STATES, data.privacyState) then
+        or not IsKnownEnumValue(WIRE_PRIVACY_STATES, data.privacyState)
+        or not ResolveAddonKey(data.sourceAddonKey) then
         return false
     end
 
@@ -762,10 +863,40 @@ local function HandleRemotePerformanceState(unitTag, data)
         or not sourceAddon
         or not sourceAddon.capabilitySet
         or sourceAddon.capabilitySet["group.performanceState.provider"] ~= true then
+        local queuedPerformance = pendingPerformanceByUnitTag[unitTag]
+        if allowPending ~= false
+            and (not queuedPerformance
+                or IsStateExpired(queuedPerformance, now)
+                or IsNewerSequence(data.sequence, queuedPerformance.data and queuedPerformance.data.sequence)) then
+            pendingPerformanceByUnitTag[unitTag] = {
+                data = {
+                    protocolVersion = data.protocolVersion,
+                    sequence = data.sequence,
+                    sourceAddonKey = data.sourceAddonKey,
+                    pingMs = data.pingMs,
+                    fps = data.fps,
+                    privacyState = data.privacyState,
+                    ttlSeconds = data.ttlSeconds,
+                },
+                expiresAt = now + math.min(data.ttlSeconds, 15),
+            }
+        end
+        return false
+    end
+
+    local previousPerformance = performanceSequenceByUnitTag[unitTag]
+    if previousPerformance and IsStateExpired(previousPerformance, now) then
+        performanceSequenceByUnitTag[unitTag] = nil
+        performanceStateByUnitTag[unitTag] = nil
+        previousPerformance = nil
+    end
+    local previousPerformanceSequence = previousPerformance and previousPerformance.sequence or nil
+    if not IsNewerSequence(data.sequence, previousPerformanceSequence) then
         return false
     end
 
     local publicMetrics = data.privacyState == WIRE_PRIVACY_STATES.public
+    pendingPerformanceByUnitTag[unitTag] = nil
     performanceSequenceByUnitTag[unitTag] = {
         sequence = data.sequence,
         expiresAt = now + data.ttlSeconds,
@@ -807,6 +938,9 @@ local function HandleRemoteGroupMessage(unitTag, data)
     end
     if type(data.performanceState) == "table" then
         return HandleRemotePerformanceState(unitTag, data.performanceState)
+    end
+    if type(data.alertEvent) == "table" then
+        return HandleRemoteAlertEvent(unitTag, data.alertEvent)
     end
     return false
 end
@@ -923,14 +1057,15 @@ function GROUP_PRESENCE.Initialize()
             SchedulePresenceAnnouncement(500, 1000)
         end)
     end
-    if status.active
+    if protocol
         and _G.EVENT_MANAGER
         and type(_G.EVENT_MANAGER.RegisterForUpdate) == "function" then
         if type(_G.EVENT_MANAGER.UnregisterForUpdate) == "function" then
             _G.EVENT_MANAGER:UnregisterForUpdate(HEARTBEAT_UPDATE_NAME)
         end
         _G.EVENT_MANAGER:RegisterForUpdate(HEARTBEAT_UPDATE_NAME, PRESENCE_HEARTBEAT_MS, function()
-            if IsLocalPlayerGrouped() then
+            RefreshStatus()
+            if status.active and IsLocalPlayerGrouped() then
                 GROUP_PRESENCE.AnnounceLocalPresence()
             end
         end)
@@ -944,6 +1079,7 @@ function GROUP_PRESENCE.GetStatus()
     return {
         available = status.available,
         configured = status.configured,
+        enabled = status.enabled,
         active = status.active,
         reason = status.reason,
         detail = status.detail,
@@ -977,12 +1113,15 @@ function GROUP_PRESENCE.GetProtocolSpec()
             presence = WIRE_MESSAGE_TYPES.presence,
             activityState = WIRE_MESSAGE_TYPES.activityState,
             performanceState = WIRE_MESSAGE_TYPES.performanceState,
+            alertEvent = WIRE_MESSAGE_TYPES.alertEvent,
         },
         activityTypes = WIRE_ACTIVITY_TYPES,
         activityStages = WIRE_ACTIVITY_STAGES,
         activityResults = WIRE_ACTIVITY_RESULTS,
         activityDifficulties = WIRE_ACTIVITY_DIFFICULTIES,
         privacyStates = WIRE_PRIVACY_STATES,
+        alertEventTypes = WIRE_ALERT_EVENT_TYPES,
+        alertQualities = WIRE_ALERT_QUALITIES,
         addonKeys = ADDON_KEYS,
         capabilityBits = CAPABILITY_BITS,
     }
@@ -1015,6 +1154,12 @@ function GROUP_PRESENCE.PrunePeers(checkCurrentGroup)
             or identityChanged then
             peersByUnitTag[unitTag] = nil
             ClearPeerTransientState(unitTag)
+        end
+    end
+    for unitTag, pendingState in pairs(pendingPerformanceByUnitTag) do
+        if IsStateExpired(pendingState, now)
+            or (checkCurrentGroup == true and not IsCurrentGroupUnit(unitTag)) then
+            pendingPerformanceByUnitTag[unitTag] = nil
         end
     end
 end
@@ -1208,6 +1353,59 @@ function GROUP_PRESENCE.PublishActivityState(first, second)
     } }, false)
 end
 
+function GROUP_PRESENCE.PublishAlertEvent(first, second)
+    local event = ResolveStateArgument(first, second)
+    if type(event) ~= "table" then
+        return false, "invalidEvent"
+    end
+
+    local sourceAddonKey = ResolveAddonKey(event.sourceAddonKey or event.sourceAddonId or event.addonId)
+    local eventType = NormalizeEnumValue(WIRE_ALERT_EVENT_TYPES, event.eventType or event.type)
+    local quality = NormalizeEnumValue(WIRE_ALERT_QUALITIES, event.quality or "unknown")
+    local ttlSeconds = NormalizeTtlSeconds(event.ttlSeconds, 15)
+    if ttlSeconds > 60 then
+        ttlSeconds = 60
+    end
+    local actorName = tostring(event.actorName or "")
+
+    if not sourceAddonKey then
+        return false, "invalidSourceAddon"
+    end
+    if not eventType or not quality then
+        return false, "invalidAlertEvent"
+    end
+    if actorName == "" or #actorName > 40 then
+        return false, "invalidActorName"
+    end
+
+    local sourceAddonId = ADDON_ID_BY_KEY[sourceAddonKey]
+    local presence = EZOCore.Presence
+    if not sourceAddonId
+        or not presence
+        or type(presence.HasLocalCapability) ~= "function"
+        or not presence.HasLocalCapability(
+            presence,
+            sourceAddonId,
+            "alerts.groupEvent.provider",
+            1
+        ) then
+        return false, "providerCapabilityMissing"
+    end
+    if not IsLocalPlayerGrouped() then
+        return false, "notGrouped"
+    end
+
+    return SendProtocolMessage({ alertEvent = {
+        protocolVersion = PRESENCE_PROTOCOL_VERSION,
+        sequence = NextSequence(),
+        sourceAddonKey = sourceAddonKey,
+        eventType = eventType,
+        quality = quality,
+        ttlSeconds = ttlSeconds,
+        actorName = actorName,
+    } }, true)
+end
+
 function GROUP_PRESENCE.PublishPerformanceState(first, second)
     local state = ResolveStateArgument(first, second)
     if type(state) ~= "table" then
@@ -1249,9 +1447,19 @@ function GROUP_PRESENCE.PublishPerformanceState(first, second)
         return false, "providerCapabilityMissing"
     end
 
+    local isPublic = privacyState == WIRE_PRIVACY_STATES.public
     local now = NowSeconds()
     local lastPublishedAt = performancePublishedAtBySourceKey[sourceAddonKey]
-    if now > 0 and lastPublishedAt and (now - lastPublishedAt) < 10 then
+    if isPublic and now > 0 and lastPublishedAt and (now - lastPublishedAt) < 10 then
+        return false, "throttled"
+    end
+    local lastPrivacyState = performancePrivacyStateBySourceKey[sourceAddonKey]
+    local lastNonPublicPublishedAt = performanceNonPublicPublishedAtBySourceKey[sourceAddonKey]
+    if not isPublic
+        and lastPrivacyState == privacyState
+        and now > 0
+        and lastNonPublicPublishedAt
+        and (now - lastNonPublicPublishedAt) < 10 then
         return false, "throttled"
     end
 
@@ -1265,7 +1473,12 @@ function GROUP_PRESENCE.PublishPerformanceState(first, second)
         ttlSeconds = NormalizeTtlSeconds(state.ttlSeconds, 30),
     } }, true)
     if sent then
-        performancePublishedAtBySourceKey[sourceAddonKey] = now
+        performancePrivacyStateBySourceKey[sourceAddonKey] = privacyState
+        if isPublic then
+            performancePublishedAtBySourceKey[sourceAddonKey] = now
+        else
+            performanceNonPublicPublishedAtBySourceKey[sourceAddonKey] = now
+        end
     end
     return sent, reason
 end
