@@ -15,6 +15,7 @@ modules/local_state.lua
 modules/presence.lua
 modules/group_presence.lua
 modules/language.lua
+modules/preferences.lua
 modules/layout.lua
 modules/settings.lua
 modules/core.lua

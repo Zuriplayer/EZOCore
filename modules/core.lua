@@ -13,6 +13,10 @@ local function OnAddOnLoaded(_, addonName)
         EZOCore.Language.Initialize()
     end
 
+    if EZOCore.Preferences and type(EZOCore.Preferences.Initialize) == "function" then
+        EZOCore.Preferences.Initialize()
+    end
+
     EZOCore:RegisterAddon({
         id = "ezocore",
         name = EZOCore.name,
@@ -25,6 +29,7 @@ local function OnAddOnLoaded(_, addonName)
             "family.groupPresence",
             "family.debug",
             "family.language",
+            "family.preferences",
             "family.layout",
             "family.settings",
         },

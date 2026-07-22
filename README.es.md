@@ -11,6 +11,7 @@ EZOCore está actualmente en **beta pública** como capa de servicios compartido
 - Expone una pequeña API local de registro/servicio/callbacks que funciona por completo dentro de un único cliente de ESO.
 - Es propietario del menú central `Settings > EZO` para la configuración de los addons de la familia EZO, con cabeceras informativas estándar de EZO.
 - Proporciona un modo de idioma común para la familia EZO: automático, inglés, español o "dejar que cada addon elija"; los addons independientes conservan su fallback propio cuando EZOCore no está instalado o el modo central permite opciones locales.
+- Expone una política de preferencias de cuenta para que los addons integrados puedan usar por defecto guardado por personaje o por cuenta en preferencias ordinarias, manteniendo siempre por cuenta las preferencias solo globales.
 - Coordina modos temporales de movimiento global e individual para los addons EZO que registran superficies HUD compatibles; las previsualizaciones permanecen ocultas en Settings y aparecen al volver al HUD principal.
 - Puede desactivar todos los modos debug o de diagnóstico registrados por addons EZO cargados sin apropiarse de sus ajustes ni activar modos de forma central.
 - Es el único propietario del transporte LibGroupBroadcast de la familia EZO: `EZO_CORE_GROUP_V2` (ID temporal de prueba beta `511`) y `EZO_CORE_GROUP_REQUEST_V1` (evento temporal de prueba beta `39`). Estando en grupo, los clientes con EZOCore y el protocolo habilitado en LibGroupBroadcast pueden intercambiar presencia compacta de addons, builds numéricas, capacidades, estado de actividad, estado opcional de rendimiento y eventos estructurados breves de alerta. Consulta [docs/group-presence-protocol.es.md](docs/group-presence-protocol.es.md).
@@ -33,6 +34,12 @@ La sección Diagnóstico ofrece una acción unidireccional para desactivar todos
 
 EZOCore guarda un modo de idioma de cuenta para la familia EZO: automático, inglés, español o "dejar que cada addon elija". Automático, inglés y español desactivan los selectores de idioma de los addons integrados y aplican la elección central. "Dejar que cada addon elija" vuelve a habilitar el selector local de cada addon. Los addons instalados sin EZOCore deben seguir exponiendo su propio fallback local de idioma.
 
+## Guardado de preferencias
+
+EZOCore guarda un alcance predeterminado de preferencias de cuenta para la familia EZO: por personaje o por cuenta. Los addons integrados pueden usar esta política para preferencias ordinarias y registrar aparte preferencias concretas, o addons completos, que deben permanecer siempre por cuenta. La política no migra por sí sola las SavedVariables de los addons consumidores; cada addon conserva la propiedad de sus datos y su migración.
+
+El catálogo interno solo global mantiene por cuenta el idioma propio de EZOCore, la política de preferencias y la política de ciclo de vida de addons, además del historial de EZOChat, la metadata de alcance de EZOcamsens y addons siempre por cuenta como EZORaidPlanner, EZOTools y EZOTest. La matriz mantenida vive en [docs/preference-storage-policy.es.md](docs/preference-storage-policy.es.md).
+
 ## API
 
 - `EZOCore:RegisterAddon(metadata)`
@@ -53,6 +60,14 @@ EZOCore guarda un modo de idioma de cuenta para la familia EZO: automático, ing
 - `EZOCore:SetLanguage(language)`
 - `EZOCore:IsSupportedLanguage(language)`
 - `EZOCore:IsLanguageGloballyManaged()`
+- `EZOCore:GetDefaultPreferenceScope()`
+- `EZOCore:SetDefaultPreferenceScope(scope)`
+- `EZOCore:IsSupportedPreferenceScope(scope)`
+- `EZOCore:GetPreferenceScope(addonId, preferenceKey)`
+- `EZOCore:RegisterAccountWideAddon(addonId)`
+- `EZOCore:IsAddonAccountWide(addonId)`
+- `EZOCore:RegisterAccountWidePreference(addonId, preferenceKey)`
+- `EZOCore:IsPreferenceAccountWide(addonId, preferenceKey)`
 - `EZOCore:RegisterCallback(eventName, callback)`
 - `EZOCore:UnregisterCallback(eventName, callback)`
 - `EZOCore:FireCallback(eventName, ...)`
@@ -68,6 +83,7 @@ Los ejemplos de integración para consumidores viven en [docs/consumer-integrati
 - `family.localState` API v1: intercambio de estado local de sesión entre addons EZO en el mismo cliente.
 - `family.groupPresence` API v1: fachada de presencia remota entre peers usando el protocolo de LibGroupBroadcast `EZO_CORE_GROUP_V2` (ID temporal de prueba beta `511`) y el evento de solicitud `EZO_CORE_GROUP_REQUEST_V1` (evento temporal de prueba beta `39`). Conserva el estado de actividad validado hasta que caduca su TTL para consumidores que se abren más tarde y puede transportar eventos estructurados breves de alerta para addons EZO compatibles.
 - `family.language` API v1: preferencia local de idioma compartida para addons de la familia EZO.
+- `family.preferences` API v1: política de cuenta para decidir si las preferencias ordinarias de addons EZO usan por defecto guardado por personaje o por cuenta, con excepciones por cuenta para addons y preferencias solo globales.
 - `family.debug` API v1: acceso común opcional a LibDebugLogger y DebugLogViewer, más registro de controladores debug propiedad de cada addon para el apagado familiar unidireccional, sin polling ni SavedVariables centrales.
 - `family.layout` API v1: registro de sesión y coordinación global e individual del movimiento para superficies HUD EZO compatibles.
 - registro local de addons/capacidades: descubrimiento solo local para consumidores como EZOTools.

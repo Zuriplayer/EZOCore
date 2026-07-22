@@ -150,6 +150,15 @@ local STRINGS = {
         languageEnglish = "English",
         languageSpanish = "Spanish",
         languageAddon = "Let each addon choose",
+        preferencesHeader = "Preferences",
+        preferencesHeaderTooltip = "Choose the default storage scope that integrated EZO addons can use "
+            .. "for ordinary preferences. Preferences marked global stay account-wide.",
+        preferenceScope = "Default preference storage",
+        preferenceScopeTooltip = "Per character keeps ordinary addon preferences separate for each character. "
+            .. "Account-wide shares ordinary preferences across the account. Global-only preferences remain "
+            .. "account-wide in either mode.",
+        preferenceScopeCharacter = "Per character",
+        preferenceScopeAccount = "Account-wide",
         layoutHeader = "Interface layout",
         layoutHeaderTooltip = "Temporarily show and unlock registered EZO windows, alerts and previews. They remain hidden while Settings is open and appear when you return to the main HUD.",
         moveAll = "Show and move all EZO windows and alerts",
@@ -205,6 +214,16 @@ local STRINGS = {
         languageEnglish = "Inglés",
         languageSpanish = "Español",
         languageAddon = "Dejar que cada addon elija",
+        preferencesHeader = "Preferencias",
+        preferencesHeaderTooltip = "Elige el alcance de guardado predeterminado que pueden usar los addons EZO "
+            .. "integrados para preferencias ordinarias. Las preferencias marcadas como globales se mantienen "
+            .. "por cuenta.",
+        preferenceScope = "Guardado predeterminado de preferencias",
+        preferenceScopeTooltip = "Por personaje mantiene separadas las preferencias ordinarias de cada personaje. "
+            .. "Por cuenta comparte las preferencias ordinarias en la cuenta. Las preferencias solo globales "
+            .. "siguen siendo por cuenta en ambos modos.",
+        preferenceScopeCharacter = "Por personaje",
+        preferenceScopeAccount = "Por cuenta",
         layoutHeader = "Disposición de interfaz",
         layoutHeaderTooltip = "Muestra y desbloquea temporalmente ventanas, avisos y previsualizaciones EZO registradas. Permanecen ocultas mientras Settings está abierto y aparecen al volver al HUD principal.",
         moveAll = "Mostrar y mover todas las ventanas y avisos EZO",
@@ -855,6 +874,38 @@ local function BuildLanguageOptions()
     }
 end
 
+local function BuildPreferenceOptions()
+    return {
+        CreateInfoHeader(T("preferencesHeader"), T("preferencesHeaderTooltip")),
+        {
+            type = "dropdown",
+            name = T("preferenceScope"),
+            tooltip = T("preferenceScopeTooltip"),
+            choices = {
+                T("preferenceScopeCharacter"),
+                T("preferenceScopeAccount"),
+            },
+            choicesValues = {
+                "character",
+                "account",
+            },
+            getFunc = function()
+                if EZOCore and type(EZOCore.GetDefaultPreferenceScope) == "function" then
+                    return EZOCore:GetDefaultPreferenceScope()
+                end
+                return "character"
+            end,
+            setFunc = function(value)
+                if EZOCore and type(EZOCore.SetDefaultPreferenceScope) == "function" then
+                    EZOCore:SetDefaultPreferenceScope(value)
+                    RebuildHubOptions()
+                    SETTINGS:RefreshCurrentPanel()
+                end
+            end,
+        },
+    }
+end
+
 local function GetLayoutService()
     if EZOCore and type(EZOCore.GetService) == "function" then
         return EZOCore:GetService("family.layout", 1)
@@ -1057,6 +1108,7 @@ local function BuildCoreOptions()
     local options = {}
     local sections = {
         BuildLanguageOptions(),
+        BuildPreferenceOptions(),
         BuildLayoutOptions(),
         BuildDebugOptions(),
     }
@@ -1096,6 +1148,10 @@ RebuildHubOptions = function()
     local languageOptions = BuildLanguageOptions()
     for index = 1, #languageOptions do
         hubOptions[#hubOptions + 1] = languageOptions[index]
+    end
+    local preferenceOptions = BuildPreferenceOptions()
+    for index = 1, #preferenceOptions do
+        hubOptions[#hubOptions + 1] = preferenceOptions[index]
     end
     local layoutOptions = BuildLayoutOptions()
     for index = 1, #layoutOptions do
