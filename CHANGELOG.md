@@ -4,6 +4,13 @@ All notable changes to EZOCore are documented in this file.
 
 ## Unreleased
 
+## [0.1.19] - 2026-07-22
+
+### Fixed
+
+- Kept `family.layout` surface identifiers strict while preserving direct and method-style service calls.
+- Aligned addon metadata and package naming with the `0.1.19` manifest version.
+
 ## [0.1.18] - 2026-07-16
 
 ### Added

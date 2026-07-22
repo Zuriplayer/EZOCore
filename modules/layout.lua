@@ -45,6 +45,9 @@ local function ResolveText(value, fallback)
 end
 
 local function ResolveArgument(first, second)
+    if type(first) == "table" and type(first.RegisterSurface) == "function" then
+        return second
+    end
     if second ~= nil then
         return second
     end
@@ -52,6 +55,9 @@ local function ResolveArgument(first, second)
 end
 
 local function ResolveTwoArguments(first, second, third)
+    if type(first) == "table" and type(first.SetSurfaceEditMode) == "function" then
+        return second, third
+    end
     if third ~= nil then
         return second, third
     end
