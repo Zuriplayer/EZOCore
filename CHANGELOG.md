@@ -4,6 +4,16 @@ All notable changes to EZOCore are documented in this file.
 
 ## Unreleased
 
+### Added
+
+- Added `family.preferences` API v1 and a Settings > EZO selector for the default EZO-family preference storage scope.
+- Added a built-in global-only preference catalog for EZOCore policy, EZOChat history, EZOcamsens scope metadata, and account-wide-only addons such as EZORaidPlanner, EZOTools and EZOTest.
+- Documented the EZO family preference storage policy matrix in English and Spanish.
+
+### Fixed
+
+- Let the global `family.layout` move-all command enable registered surfaces while the player is in combat.
+
 ## [0.1.19] - 2026-07-22
 
 ### Fixed

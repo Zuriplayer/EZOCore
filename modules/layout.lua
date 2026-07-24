@@ -209,15 +209,14 @@ function LAYOUT.IsSurfaceEditMode(first, second)
     return ReadEditMode(surfacesById[NormalizeId(surfaceId)])
 end
 
-function LAYOUT.SetSurfaceEditMode(first, second, third)
-    local surfaceId, enabled = ResolveTwoArguments(first, second, third)
+local function SetSurfaceEditMode(surfaceId, enabled, ignoreAvailability)
     local surface = surfacesById[NormalizeId(surfaceId)]
     if not surface then
         return false
     end
 
     enabled = enabled == true
-    if enabled and not CanEnable(surface) then
+    if enabled and ignoreAvailability ~= true and not CanEnable(surface) then
         return false
     end
 
@@ -234,11 +233,16 @@ function LAYOUT.SetSurfaceEditMode(first, second, third)
     return actual == enabled
 end
 
+function LAYOUT.SetSurfaceEditMode(first, second, third)
+    local surfaceId, enabled = ResolveTwoArguments(first, second, third)
+    return SetSurfaceEditMode(surfaceId, enabled, false)
+end
+
 function LAYOUT.SetAllEditMode(first, second)
     local enabled = ResolveArgument(first, second)
     local success = true
     for _, surfaceId in ipairs(surfaceOrder) do
-        if not LAYOUT:SetSurfaceEditMode(surfaceId, enabled == true) then
+        if not SetSurfaceEditMode(surfaceId, enabled == true, true) then
             success = false
         end
     end
