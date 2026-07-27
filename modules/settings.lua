@@ -14,6 +14,7 @@ local SERVICE_NAME = "family.settings"
 local SERVICE_API_VERSION = 1
 local CORE_ADDON_NAME = "EZOCore"
 local MANAGER_PANEL_ID = "__ezo_installed_addons"
+local LIBRARIES_PANEL_ID = "__ezo_libraries"
 local HUB_PANEL_ID = "EZOCore_EZO_Panel"
 local WINDOW_NAME = "EZOCoreSettingsWindow"
 local INFO_HEADER_TEXTURE = "EsoUI/Art/Miscellaneous/help_icon.dds"
@@ -1513,6 +1514,25 @@ local function BuildManagerEntry()
     }
 end
 
+local function BuildLibrariesEntry()
+    return {
+        addonId = LIBRARIES_PANEL_ID,
+        panelId = LIBRARIES_PANEL_ID,
+        panelData = {
+            type = "panel",
+            name = T("libraries"),
+            displayName = T("libraries"),
+            author = "@Zuriplayer",
+            version = EZOCore.version,
+            description = T("librariesTooltip"),
+            feedback = FEEDBACK_URL,
+            registerForRefresh = true,
+        },
+        options = BuildLibrariesOptions,
+        sortName = "001 " .. T("libraries"),
+    }
+end
+
 RebuildHubOptions = function()
     for key in pairs(hubOptions) do
         hubOptions[key] = nil
@@ -1634,7 +1654,14 @@ local function GetEntry(addonId)
     if addonId == MANAGER_PANEL_ID then
         return BuildManagerEntry()
     end
+    if addonId == LIBRARIES_PANEL_ID then
+        return BuildLibrariesEntry()
+    end
     return panelsById[addonId]
+end
+
+local function IsBuiltInPanelId(addonId)
+    return addonId == MANAGER_PANEL_ID or addonId == LIBRARIES_PANEL_ID
 end
 
 local function SelectFirstPanel()
@@ -1711,6 +1738,11 @@ local function BuildMenuRows()
     table.insert(rows, 1, {
         addonId = MANAGER_PANEL_ID,
         entry = BuildManagerEntry(),
+        isCore = true,
+    })
+    table.insert(rows, 2, {
+        addonId = LIBRARIES_PANEL_ID,
+        entry = BuildLibrariesEntry(),
         isCore = true,
     })
     return rows
@@ -2239,14 +2271,14 @@ function SETTINGS.GetSettingsPanels()
 end
 
 function SETTINGS.OpenSettingsPanel(_, addonId)
-    local normalizedId = addonId == MANAGER_PANEL_ID and MANAGER_PANEL_ID or NormalizeId(addonId)
-    if not normalizedId or (normalizedId ~= MANAGER_PANEL_ID and not panelsById[normalizedId]) then
+    local normalizedId = IsBuiltInPanelId(addonId) and addonId or NormalizeId(addonId)
+    if not normalizedId or (not IsBuiltInPanelId(normalizedId) and not panelsById[normalizedId]) then
         return false
     end
 
     selectedPanelId = normalizedId
     if ui then
-        if normalizedId == MANAGER_PANEL_ID then
+        if IsBuiltInPanelId(normalizedId) then
             InvalidatePanelHost(normalizedId)
         end
         RenderSelectedPanel()
