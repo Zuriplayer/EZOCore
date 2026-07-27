@@ -52,6 +52,7 @@ local ADDON_LIFECYCLE_CATALOG = {
     ["ezometter"] = "beta",
     ["ezopvp"] = "development",
     ["ezotakingaim"] = "archived",
+    ["ezotest"] = "development",
     ["ezotools"] = "beta",
 }
 -- EZO-LIFECYCLE-CATALOG-END
@@ -109,9 +110,100 @@ local ADDON_DESCRIPTION_CATALOG = {
         en = "Archived aiming helper retained for access.",
         es = "Ayuda de apuntado archivada y conservada para acceso.",
     },
+    ezotest = {
+        en = "Disposable EZO family test bench for controlled UI and reticle experiments.",
+        es = "Banco de pruebas desechable de la familia EZO para experimentos controlados de UI y reticula.",
+    },
     ezotools = {
         en = "Quick command panel, travel tools, group actions and utility helpers.",
         es = "Panel rapido de comandos, herramientas de viaje, acciones de grupo y utilidades.",
+    },
+}
+
+local RECOMMENDED_DEPENDENCY_CATALOG = {
+    {
+        name = "LibAddonMenu-2.0",
+        addons = {
+            "EZOCore",
+            "EZOCustomSupportIcons",
+            "EZOTest",
+        },
+    },
+    {
+        name = "LibChatMessage",
+        addons = {
+            "EZOAlerts",
+            "EZOArmory",
+            "EZOAuto",
+            "EZOcamsens",
+            "EZOCursor",
+            "EZOhud",
+            "EZOMetter",
+            "EZOPVP",
+            "EZOTools",
+        },
+    },
+    {
+        name = "LibDebugLogger",
+        addons = {
+            "EZOCore",
+            "EZOAlerts",
+            "EZOArmory",
+            "EZOAuto",
+            "EZOcamsens",
+            "EZOChat",
+            "EZOCombat",
+            "EZOCursor",
+            "EZOCustomSupportIcons",
+            "EZOGroupFrames",
+            "EZOhud",
+            "EZOKeybinds",
+            "EZOMetter",
+            "EZOPVP",
+            "EZORaidPlanner",
+            "EZOTakingAim",
+            "EZOTest",
+            "EZOTools",
+        },
+    },
+    {
+        name = "DebugLogViewer",
+        addons = {
+            "EZOCore",
+            "EZOAlerts",
+            "EZOArmory",
+            "EZOAuto",
+            "EZOcamsens",
+            "EZOChat",
+            "EZOCombat",
+            "EZOCursor",
+            "EZOCustomSupportIcons",
+            "EZOGroupFrames",
+            "EZOhud",
+            "EZOKeybinds",
+            "EZOMetter",
+            "EZOPVP",
+            "EZORaidPlanner",
+            "EZOTakingAim",
+            "EZOTest",
+            "EZOTools",
+        },
+    },
+    {
+        name = "LibGroupBroadcast",
+        addons = { "EZOCore" },
+    },
+    {
+        name = "LibCombat",
+        addons = { "EZOMetter" },
+    },
+    {
+        name = "LibSlashCommander",
+        addons = { "EZOPVP", "EZOTools" },
+    },
+    {
+        name = "LibCustomMenu",
+        addons = { "EZOCustomSupportIcons" },
     },
 }
 
@@ -139,6 +231,22 @@ local STRINGS = {
         installedAddons = "Installed EZO addons",
         installedAddonsTooltip = "Enable or disable installed EZO family addons. Changes require reload. "
             .. "New Development and Unclassified addons start disabled; a later manual choice is preserved.",
+        libraries = "Libraries",
+        librariesTooltip = "Shows required libraries reported by ESO and recommended optional libraries used "
+            .. "by EZO family integrations.",
+        requiredLibraries = "Required libraries",
+        requiredLibrariesTooltip = "Libraries declared as required dependencies by installed EZO addons.",
+        recommendedLibraries = "Recommended optional libraries",
+        recommendedLibrariesTooltip = "Optional libraries and diagnostic companions that improve "
+            .. "EZO addon integration.",
+        noRequiredLibraries = "No required library dependency was reported for installed EZO addons.",
+        noRecommendedLibraries = "No recommended optional library is configured.",
+        installedStatus = "installed",
+        missingStatus = "missing",
+        disabledStatus = "disabled",
+        versionTooLowStatus = "version too low",
+        requiredBy = "Required by: %s",
+        recommendedBy = "Recommended by: %s",
         addonSettingsTooltip = "Open settings registered by installed EZO addons through EZOCore.",
         languageHeader = "Language",
         languageHeaderTooltip = "Choose whether EZOCore manages one language for the EZO family "
@@ -160,17 +268,23 @@ local STRINGS = {
         preferenceScopeCharacter = "Per character",
         preferenceScopeAccount = "Account-wide",
         layoutHeader = "Interface layout",
-        layoutHeaderTooltip = "Temporarily show and unlock registered EZO windows, alerts and previews. They remain hidden while Settings is open and appear when you return to the main HUD.",
+        layoutHeaderTooltip = "Temporarily show and unlock registered EZO windows, alerts and previews. "
+            .. "They remain hidden while Settings is open and appear when you return to the main HUD.",
         moveAll = "Show and move all EZO windows and alerts",
-        moveAllTooltip = "Enable placement mode for every registered EZO surface. Close Settings to arrange them, then return here to disable placement mode.",
+        moveAllTooltip = "Enable placement mode for every registered EZO surface. Close Settings to arrange them, "
+            .. "then return here to disable placement mode.",
         individualWindows = "Individual windows",
-        individualWindowsTooltip = "Enable or disable movement for one registered EZO surface without changing the others.",
+        individualWindowsTooltip = "Enable or disable movement for one registered EZO surface "
+            .. "without changing the others.",
         noMovableSurfaces = "No loaded EZO addon has registered a movable surface.",
-        surfaceMoveTooltip = "Temporarily enable movement for this surface. Its addon remains responsible for position and preview behavior.",
+        surfaceMoveTooltip = "Temporarily enable movement for this surface. Its addon remains responsible "
+            .. "for position and preview behavior.",
         debugHeader = "Diagnostics",
-        debugHeaderTooltip = "Controls diagnostic and debug modes exposed by loaded EZO addons. Each addon remains responsible for its own setting and runtime cleanup.",
+        debugHeaderTooltip = "Controls diagnostic and debug modes exposed by loaded EZO addons. "
+            .. "Each addon remains responsible for its own setting and runtime cleanup.",
         disableAllDebug = "Disable all EZO debug modes",
-        disableAllDebugTooltip = "Turns off every registered debug or diagnostic mode in loaded EZO addons. Individual addon controls remain available; this action never enables debug.",
+        disableAllDebugTooltip = "Turns off every registered debug or diagnostic mode in loaded EZO addons. "
+            .. "Individual addon controls remain available; this action never enables debug.",
         noOptions = "This addon has not registered settings yet.",
         noLam = "LibAddonMenu-2.0 is not available. Option controls cannot be rendered.",
         unsupportedControl = "Unsupported setting control: %s",
@@ -203,6 +317,22 @@ local STRINGS = {
         installedAddonsTooltip = "Activa o desactiva addons instalados de la familia EZO. "
             .. "Los cambios requieren recarga. Los addons nuevos en Desarrollo y Sin clasificar "
             .. "empiezan desactivados; una elección manual posterior se conserva.",
+        libraries = "Librerias",
+        librariesTooltip = "Muestra las librerias obligatorias informadas por ESO y las librerias opcionales "
+            .. "recomendadas por integraciones de la familia EZO.",
+        requiredLibraries = "Librerias necesarias",
+        requiredLibrariesTooltip = "Librerias declaradas como dependencias obligatorias por addons EZO instalados.",
+        recommendedLibraries = "Librerias opcionales recomendadas",
+        recommendedLibrariesTooltip = "Librerias opcionales y companeros de diagnostico que mejoran integraciones EZO.",
+        noRequiredLibraries = "Ninguna dependencia obligatoria de libreria fue informada "
+            .. "para los addons EZO instalados.",
+        noRecommendedLibraries = "No hay ninguna libreria opcional recomendada configurada.",
+        installedStatus = "instalada",
+        missingStatus = "falta",
+        disabledStatus = "desactivada",
+        versionTooLowStatus = "version insuficiente",
+        requiredBy = "Necesaria para: %s",
+        recommendedBy = "Recomendada para: %s",
         addonSettingsTooltip = "Abre la configuración registrada por addons EZO instalados mediante EZOCore.",
         languageHeader = "Idioma",
         languageHeaderTooltip = "Elige si EZOCore gestiona un idioma para la familia EZO "
@@ -225,17 +355,23 @@ local STRINGS = {
         preferenceScopeCharacter = "Por personaje",
         preferenceScopeAccount = "Por cuenta",
         layoutHeader = "Disposición de interfaz",
-        layoutHeaderTooltip = "Muestra y desbloquea temporalmente ventanas, avisos y previsualizaciones EZO registradas. Permanecen ocultas mientras Settings está abierto y aparecen al volver al HUD principal.",
+        layoutHeaderTooltip = "Muestra y desbloquea temporalmente ventanas, avisos y previsualizaciones EZO "
+            .. "registradas. Permanecen ocultas mientras Settings está abierto y aparecen al volver al HUD principal.",
         moveAll = "Mostrar y mover todas las ventanas y avisos EZO",
-        moveAllTooltip = "Activa el modo de colocación de todas las superficies EZO registradas. Cierra Settings para colocarlas y vuelve aquí para desactivar el modo de colocación.",
+        moveAllTooltip = "Activa el modo de colocación de todas las superficies EZO registradas. "
+            .. "Cierra Settings para colocarlas y vuelve aquí para desactivar el modo de colocación.",
         individualWindows = "Ventanas individuales",
-        individualWindowsTooltip = "Activa o desactiva el movimiento de una superficie EZO registrada sin cambiar las demás.",
+        individualWindowsTooltip = "Activa o desactiva el movimiento de una superficie EZO registrada "
+            .. "sin cambiar las demás.",
         noMovableSurfaces = "Ningún addon EZO cargado ha registrado una superficie movible.",
-        surfaceMoveTooltip = "Activa temporalmente el movimiento de esta superficie. Su addon sigue siendo responsable de la posición y la previsualización.",
+        surfaceMoveTooltip = "Activa temporalmente el movimiento de esta superficie. Su addon sigue siendo "
+            .. "responsable de la posición y la previsualización.",
         debugHeader = "Diagnóstico",
-        debugHeaderTooltip = "Controla los modos de diagnóstico y depuración expuestos por addons EZO cargados. Cada addon conserva la responsabilidad sobre su ajuste y la limpieza de recursos.",
+        debugHeaderTooltip = "Controla los modos de diagnóstico y depuración expuestos por addons EZO cargados. "
+            .. "Cada addon conserva la responsabilidad sobre su ajuste y la limpieza de recursos.",
         disableAllDebug = "Desactivar todos los modos debug EZO",
-        disableAllDebugTooltip = "Desactiva todos los modos debug o de diagnóstico registrados por addons EZO cargados. Los controles individuales siguen disponibles; esta acción nunca activa debug.",
+        disableAllDebugTooltip = "Desactiva todos los modos debug o de diagnóstico registrados por addons EZO "
+            .. "cargados. Los controles individuales siguen disponibles; esta acción nunca activa debug.",
         noOptions = "Este addon todavía no ha registrado opciones.",
         noLam = "LibAddonMenu-2.0 no está disponible. No se pueden dibujar controles de opciones.",
         unsupportedControl = "Control de ajuste no soportado: %s",
@@ -542,6 +678,180 @@ local function GetInstalledEZOAddons()
     end)
 
     return addons
+end
+
+local function GetInstalledAddOns()
+    local manager = ResolveAddOnManager()
+    local count = GetAddOnCount(manager)
+    local addons = {}
+
+    if not count then
+        return addons
+    end
+
+    for index = 1, count do
+        local record = GetAddOnInfo(manager, index)
+        if record then
+            addons[#addons + 1] = record
+        end
+    end
+
+    return addons
+end
+
+local function FindInstalledAddOnRecord(name)
+    local normalizedName = NormalizeId(StripMarkup(name))
+    if not normalizedName then
+        return nil
+    end
+
+    for _, record in ipairs(GetInstalledAddOns()) do
+        local recordName = NormalizeId(StripMarkup(record.name))
+        local recordTitle = NormalizeId(StripMarkup(record.title))
+        if recordName == normalizedName or recordTitle == normalizedName then
+            return record
+        end
+    end
+    return nil
+end
+
+local function GetAddOnDependencyCount(manager, index)
+    if not manager or type(manager.GetAddOnNumDependencies) ~= "function" then
+        return 0
+    end
+
+    local ok, count = pcall(function()
+        return manager:GetAddOnNumDependencies(index)
+    end)
+    if ok and type(count) == "number" then
+        return count
+    end
+    return 0
+end
+
+local function GetAddOnDependencyInfo(manager, addonIndex, dependencyIndex)
+    if not manager or type(manager.GetAddOnDependencyInfo) ~= "function" then
+        return nil
+    end
+
+    local ok, name, exists, active, minVersion, version, isLibrary = pcall(function()
+        return manager:GetAddOnDependencyInfo(addonIndex, dependencyIndex)
+    end)
+    if not ok or not IsNonEmptyString(name) then
+        return nil
+    end
+
+    return {
+        name = StripMarkup(name),
+        exists = exists == true,
+        active = active == true,
+        minVersion = tonumber(minVersion) or 0,
+        version = tonumber(version) or 0,
+        isLibrary = isLibrary == true,
+    }
+end
+
+local function IsLibraryDependency(dependency)
+    if not dependency then
+        return false
+    end
+    if dependency.isLibrary == true then
+        return true
+    end
+    return string.match(dependency.name or "", "^Lib") ~= nil
+end
+
+local function AppendUniqueName(list, seen, name)
+    local normalizedName = NormalizeId(name)
+    if not normalizedName or seen[normalizedName] then
+        return
+    end
+    seen[normalizedName] = true
+    list[#list + 1] = name
+end
+
+local function GetDependencyStatus(entry)
+    if entry.exists == false then
+        return T("missingStatus")
+    end
+    if entry.active == false then
+        return T("disabledStatus")
+    end
+    if (entry.version or 0) < (entry.minVersion or 0) then
+        return T("versionTooLowStatus")
+    end
+    return T("installedStatus")
+end
+
+local function BuildDependencyLine(name, status, detail)
+    if IsNonEmptyString(detail) then
+        return string.format("%s - %s\n%s", name, status, detail)
+    end
+    return string.format("%s - %s", name, status)
+end
+
+local function CollectRequiredLibraries()
+    local manager = ResolveAddOnManager()
+    local entriesById = {}
+    local entries = {}
+
+    for _, addon in ipairs(GetInstalledEZOAddons()) do
+        local addonTitle = StripMarkup(addon.title)
+        local count = GetAddOnDependencyCount(manager, addon.index)
+        for index = 1, count do
+            local dependency = GetAddOnDependencyInfo(manager, addon.index, index)
+            if IsLibraryDependency(dependency) then
+                local dependencyId = NormalizeId(dependency.name)
+                local entry = dependencyId and entriesById[dependencyId] or nil
+                if not entry then
+                    entry = {
+                        name = dependency.name,
+                        exists = dependency.exists,
+                        active = dependency.active,
+                        minVersion = dependency.minVersion,
+                        version = dependency.version,
+                        addons = {},
+                        addonSeen = {},
+                    }
+                    entriesById[dependencyId] = entry
+                    entries[#entries + 1] = entry
+                else
+                    entry.exists = entry.exists and dependency.exists
+                    entry.active = entry.active and dependency.active
+                    entry.minVersion = math.max(entry.minVersion or 0, dependency.minVersion or 0)
+                    entry.version = math.max(entry.version or 0, dependency.version or 0)
+                end
+                AppendUniqueName(entry.addons, entry.addonSeen, addonTitle)
+            end
+        end
+    end
+
+    table.sort(entries, function(left, right)
+        return string.lower(left.name) < string.lower(right.name)
+    end)
+    return entries
+end
+
+local function CollectRecommendedLibraries(requiredById)
+    local entries = {}
+
+    for _, definition in ipairs(RECOMMENDED_DEPENDENCY_CATALOG) do
+        local dependencyId = NormalizeId(definition.name)
+        if dependencyId and not requiredById[dependencyId] then
+            local record = FindInstalledAddOnRecord(definition.name)
+            entries[#entries + 1] = {
+                name = definition.name,
+                status = record and (record.enabled and T("installedStatus") or T("disabledStatus"))
+                    or T("missingStatus"),
+                addons = definition.addons or {},
+            }
+        end
+    end
+
+    table.sort(entries, function(left, right)
+        return string.lower(left.name) < string.lower(right.name)
+    end)
+    return entries
 end
 
 local function GetAddOnRecordId(record)
@@ -1104,6 +1414,70 @@ local function BuildInstalledAddonsOptions()
     return options
 end
 
+local function BuildLibrariesOptions()
+    local manager = ResolveAddOnManager()
+    local count = GetAddOnCount(manager)
+    local options = {
+        CreateInfoHeader(T("libraries"), T("librariesTooltip")),
+    }
+
+    if not count then
+        options[#options + 1] = {
+            type = "description",
+            text = T("addOnManagerUnavailable"),
+        }
+        return options
+    end
+
+    local requiredLibraries = CollectRequiredLibraries()
+    local requiredById = {}
+
+    options[#options + 1] = CreateInfoHeader(
+        T("requiredLibraries"),
+        T("requiredLibrariesTooltip"))
+
+    if #requiredLibraries == 0 then
+        options[#options + 1] = {
+            type = "description",
+            text = T("noRequiredLibraries"),
+        }
+    else
+        for _, entry in ipairs(requiredLibraries) do
+            local dependencyId = NormalizeId(entry.name)
+            if dependencyId then
+                requiredById[dependencyId] = true
+            end
+            local detail = string.format(T("requiredBy"), table.concat(entry.addons, ", "))
+            options[#options + 1] = {
+                type = "description",
+                text = BuildDependencyLine(entry.name, GetDependencyStatus(entry), detail),
+            }
+        end
+    end
+
+    options[#options + 1] = CreateInfoHeader(
+        T("recommendedLibraries"),
+        T("recommendedLibrariesTooltip"))
+
+    local recommendedLibraries = CollectRecommendedLibraries(requiredById)
+    if #recommendedLibraries == 0 then
+        options[#options + 1] = {
+            type = "description",
+            text = T("noRecommendedLibraries"),
+        }
+    else
+        for _, entry in ipairs(recommendedLibraries) do
+            local detail = string.format(T("recommendedBy"), table.concat(entry.addons, ", "))
+            options[#options + 1] = {
+                type = "description",
+                text = BuildDependencyLine(entry.name, entry.status, detail),
+            }
+        end
+    end
+
+    return options
+end
+
 local function BuildCoreOptions()
     local options = {}
     local sections = {
@@ -1219,6 +1593,13 @@ RebuildHubOptions = function()
         name = T("installedAddons"),
         tooltip = T("installedAddonsTooltip"),
         controls = BuildInstalledAddonsOptions(),
+    }
+
+    hubOptions[#hubOptions + 1] = {
+        type = "submenu",
+        name = T("libraries"),
+        tooltip = T("librariesTooltip"),
+        controls = BuildLibrariesOptions(),
     }
 end
 
