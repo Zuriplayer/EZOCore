@@ -36,6 +36,14 @@ local LIFECYCLE_STAGES = {
     unclassified = { order = 5, nameKey = "stageUnclassified", tooltipKey = "stageUnclassifiedTooltip" },
     archived = { order = 6, nameKey = "stageArchived", tooltipKey = "stageArchivedTooltip" },
 }
+local DEPENDENCY_COLORS = {
+    name = "B040FF",
+    detail = "A8A8A8",
+    installedStatus = "43D17A",
+    missingStatus = "FF4F5E",
+    disabledStatus = "F0A640",
+    versionTooLowStatus = "F0A640",
+}
 
 -- EZO-LIFECYCLE-CATALOG-START
 -- Generated from the family ezo-addon.json files by EZOFamilyTools.
@@ -328,9 +336,9 @@ local STRINGS = {
         noRequiredLibraries = "Ninguna dependencia obligatoria de libreria fue informada "
             .. "para los addons EZO instalados.",
         noRecommendedLibraries = "No hay ninguna libreria opcional recomendada configurada.",
-        installedStatus = "instalada",
-        missingStatus = "falta",
-        disabledStatus = "desactivada",
+        installedStatus = "instalado",
+        missingStatus = "missing",
+        disabledStatus = "desactivado",
         versionTooLowStatus = "version insuficiente",
         requiredBy = "Necesaria para: %s",
         recommendedBy = "Recomendada para: %s",
@@ -771,24 +779,33 @@ local function AppendUniqueName(list, seen, name)
     list[#list + 1] = name
 end
 
-local function GetDependencyStatus(entry)
-    if entry.exists == false then
-        return T("missingStatus")
-    end
-    if entry.active == false then
-        return T("disabledStatus")
-    end
-    if (entry.version or 0) < (entry.minVersion or 0) then
-        return T("versionTooLowStatus")
-    end
-    return T("installedStatus")
+local function ColorText(color, text)
+    return string.format("|c%s%s|r", color or "FFFFFF", tostring(text or ""))
 end
 
-local function BuildDependencyLine(name, status, detail)
-    if IsNonEmptyString(detail) then
-        return string.format("%s - %s\n%s", name, status, detail)
+local function GetDependencyStatusKey(entry)
+    if entry.exists == false then
+        return "missingStatus"
     end
-    return string.format("%s - %s", name, status)
+    if entry.active == false then
+        return "disabledStatus"
+    end
+    if (entry.version or 0) < (entry.minVersion or 0) then
+        return "versionTooLowStatus"
+    end
+    return "installedStatus"
+end
+
+local function BuildDependencyLine(name, statusKey, detail)
+    local header = string.format(
+        "%s - %s",
+        ColorText(DEPENDENCY_COLORS.name, name),
+        ColorText(DEPENDENCY_COLORS[statusKey], T(statusKey)))
+
+    if IsNonEmptyString(detail) then
+        return string.format("%s\n%s", header, ColorText(DEPENDENCY_COLORS.detail, detail))
+    end
+    return header
 end
 
 local function CollectRequiredLibraries()
@@ -842,8 +859,8 @@ local function CollectRecommendedLibraries(requiredById)
             local record = FindInstalledAddOnRecord(definition.name)
             entries[#entries + 1] = {
                 name = definition.name,
-                status = record and (record.enabled and T("installedStatus") or T("disabledStatus"))
-                    or T("missingStatus"),
+                statusKey = record and (record.enabled and "installedStatus" or "disabledStatus")
+                    or "missingStatus",
                 addons = definition.addons or {},
             }
         end
@@ -1451,7 +1468,7 @@ local function BuildLibrariesOptions()
             local detail = string.format(T("requiredBy"), table.concat(entry.addons, ", "))
             options[#options + 1] = {
                 type = "description",
-                text = BuildDependencyLine(entry.name, GetDependencyStatus(entry), detail),
+                text = BuildDependencyLine(entry.name, GetDependencyStatusKey(entry), detail),
             }
         end
     end
@@ -1471,7 +1488,7 @@ local function BuildLibrariesOptions()
             local detail = string.format(T("recommendedBy"), table.concat(entry.addons, ", "))
             options[#options + 1] = {
                 type = "description",
-                text = BuildDependencyLine(entry.name, entry.status, detail),
+                text = BuildDependencyLine(entry.name, entry.statusKey, detail),
             }
         end
     end
