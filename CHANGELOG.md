@@ -14,6 +14,12 @@ All notable changes to EZOCore are documented in this file.
 
 - Let the global `family.layout` move-all command enable registered surfaces while the player is in combat.
 
+## [0.1.20] - 2026-07-28
+
+### Fixed
+
+- Preserved the vertical scroll position of a Settings > EZO panel when a consumer addon forces a rebuild through `family.settings`, instead of jumping back to the top.
+
 ## [0.1.19] - 2026-07-22
 
 ### Fixed

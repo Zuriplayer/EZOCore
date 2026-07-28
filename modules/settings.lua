@@ -2315,13 +2315,50 @@ function SETTINGS.OpenLamHub()
     return false
 end
 
+-- Posicion vertical actual del scroll de un panel host LAM, o nil.
+-- El contenedor es un ZO_ScrollContainer: el offset se lee del hijo CT_SCROLL
+-- (GetScrollOffsets, segundo retorno) y se restaura con
+-- ZO_Scroll_ScrollAbsoluteInstantly sobre el contenedor.
+local function GetHostScrollOffset(host)
+    local container = host and host.container
+    local scroll = container and container.scroll
+    if not (scroll and type(scroll.GetScrollOffsets) == "function") then
+        return nil
+    end
+    local ok, _, verticalOffset = pcall(scroll.GetScrollOffsets, scroll)
+    if ok and type(verticalOffset) == "number" and verticalOffset > 0 then
+        return verticalOffset
+    end
+    return nil
+end
+
+local function RestoreHostScrollOffset(hostPanelId, offset)
+    if offset == nil then
+        return
+    end
+    zo_callLater(function()
+        local host = ui and ui.panelHosts and ui.panelHosts[hostPanelId]
+        local container = host and host.container
+        if container and type(ZO_Scroll_ScrollAbsoluteInstantly) == "function" then
+            pcall(ZO_Scroll_ScrollAbsoluteInstantly, container, offset)
+        end
+    end, 50)
+end
+
 function SETTINGS.RefreshCurrentPanel(first, second)
     if ui then
         local forceRebuild = second ~= nil and second == true or first == true
+        local scrollOffset = nil
         if forceRebuild and selectedPanelId then
+            -- Conserva la posicion de scroll al reconstruir, para que un
+            -- refresh forzado no devuelva al usuario al principio del panel.
+            scrollOffset = GetHostScrollOffset(ui.panelHosts[selectedPanelId])
             InvalidatePanelHost(selectedPanelId)
         end
         RenderSelectedPanel()
+        if scrollOffset and selectedPanelId then
+            RestoreHostScrollOffset(selectedPanelId, scrollOffset)
+        end
     end
 end
 

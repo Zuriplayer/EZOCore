@@ -2,8 +2,8 @@ EZOCore = EZOCore or {}
 local EZOCore = EZOCore
 
 EZOCore.name = "EZOCore"
-EZOCore.version = "0.1.19"
-EZOCore.addOnVersion = 119
+EZOCore.version = "0.1.20"
+EZOCore.addOnVersion = 120
 EZOCore.apiVersion = 1
 
 EZOCore.EVENT_INITIALIZED = "EZO_CORE_INITIALIZED"
