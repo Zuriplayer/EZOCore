@@ -2417,8 +2417,9 @@ function EZOCore.OpenSettingsPanel(_, addonId)
     return SETTINGS:OpenSettingsPanel(addonId)
 end
 
-function EZOCore.RefreshSettingsPanel()
-    return SETTINGS:RefreshCurrentPanel()
+function EZOCore.RefreshSettingsPanel(first, second)
+    local forceRebuild = first == true or second == true
+    return SETTINGS:RefreshCurrentPanel(forceRebuild)
 end
 
 function EZOCore.OpenSettings()

@@ -14,6 +14,13 @@ All notable changes to EZOCore are documented in this file.
 
 - Let the global `family.layout` move-all command enable registered surfaces while the player is in combat.
 
+## [0.1.21] - 2026-07-28
+
+### Fixed
+
+- Made the public `EZOCore:RefreshSettingsPanel(true)` API preserve and forward its forced-rebuild argument to `family.settings`.
+- Allows consumer master toggles to rebuild the active hosted LAM panel after their callback completes, reevaluating dependent `disabled` controls while preserving scroll position.
+
 ## [0.1.20] - 2026-07-28
 
 ### Fixed

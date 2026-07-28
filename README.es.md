@@ -26,6 +26,8 @@ No demasiado por sí mismo. EZOCore está pensado como una dependencia opcional 
 
 EZOCore es propietario del hub central `Settings > EZO`. La entrada nativa de Ajustes usa la identidad visual de la familia EZO con la Z morada. Las aperturas programáticas desde un addon integrado seleccionan directamente la vista de ajustes EZO de ese addon. Su índice lateral combina navegación y selectores de activación: EZOCore permanece marcado y bloqueado, mientras los demás addons EZO instalados se pueden activar o desactivar y aplicar mediante el botón común `Recargar UI`. Los addons se agrupan por su fase declarada en orden de madurez: Estable, Mantenimiento, Beta, Desarrollo, Sin clasificar y Archivado. Por tanto, los addons archivados permanecen visibles al final de la lista. Los addons nuevos detectados en Desarrollo o Sin clasificar empiezan desactivados y requieren recarga para retirar el código ya cargado; si después activas uno manualmente, la decisión se recuerda y no se sobrescribe. La primera actualización a esta política conserva el estado de todos los addons instalados actualmente. Cada grupo usa el icono informativo morado de EZO y mantiene su explicación en el tooltip de la cabecera. Las filas de addon muestran un tooltip descriptivo breve y localizado, sin carpeta ni estado de carga. Los addons desactivados permanecen en la lista, pero no pueden mostrar sus ajustes hasta activarlos y recargar la interfaz. La ayuda específica de cada campo permanece en el tooltip de su propio control.
 
+Los addons consumidores pueden llamar a `EZOCore:RefreshSettingsPanel(true)` después de cambiar un ajuste maestro para forzar la reconstrucción del panel alojado activo. La reconstrucción reevalúa los callbacks dinámicos `disabled` y conserva la posición vertical actual.
+
 La sección Disposición de interfaz puede desbloquear todas las superficies EZO registradas a la vez o una por una. Cierra Settings para ver y colocar las previsualizaciones en HUD/HUD_UI y vuelve después a la misma sección para desactivar el movimiento. El estado de edición nunca se persiste; cada addon consumidor conserva la propiedad de su posición, escala y control de movimiento independiente.
 
 La sección Diagnóstico ofrece una acción unidireccional para desactivar todos los modos debug y de diagnóstico EZO registrados. Solo afecta a addons cargados que exponen el contrato opcional. Cada addon conserva su control individual, sus SavedVariables y la responsabilidad de liberar eventos, updates o simulaciones usados únicamente para depuración.
@@ -52,7 +54,7 @@ El catálogo interno solo global mantiene por cuenta el idioma propio de EZOCore
 - `EZOCore:RegisterSettingsPanel(addonId, panelId, panelData, options)`
 - `EZOCore:GetSettingsPanels()`
 - `EZOCore:OpenSettingsPanel(addonId)`
-- `EZOCore:RefreshSettingsPanel()`
+- `EZOCore:RefreshSettingsPanel(forceRebuild)`
 - `EZOCore:OpenSettings()`
 - `EZOCore:GetConfiguredLanguage()`
 - `EZOCore:GetLanguage()`

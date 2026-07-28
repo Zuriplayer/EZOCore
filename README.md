@@ -26,6 +26,8 @@ Not much on its own. EZOCore is meant to be an optional shared dependency for ot
 
 EZOCore owns the central `Settings > EZO` hub. The native Settings entry uses the EZO family branding with its purple Z. Programmatic openings from an integrated addon select that addon's own EZO settings view directly. Its left index combines addon navigation with enable/disable selectors: EZOCore remains checked and locked, while other installed EZO addons can be toggled and applied with the shared `Reload UI` button. Addons are grouped by their declared lifecycle stage in maturity order: Stable, Maintenance, Beta, Development, Unclassified and Archived. Archived addons therefore remain visible at the end of the list. Newly discovered Development and Unclassified addons start disabled and require reload before their already loaded code is removed; enabling one manually is remembered and is not overridden later. The first upgrade to this policy preserves all currently installed addon states. Each group uses the EZO purple information icon and keeps its explanation in the header tooltip. Addon rows show a short localized description tooltip without folder or load-state metadata. Disabled addons remain listed but cannot expose their settings until they are enabled and the UI reloads. Field-specific help remains on each setting control.
 
+Consumer addons can call `EZOCore:RefreshSettingsPanel(true)` after changing a master setting to force the active hosted panel to be rebuilt. The rebuild reevaluates dynamic `disabled` callbacks and preserves the current vertical scroll position.
+
 The Interface layout section can unlock every registered EZO surface at once or one surface at a time. Close Settings to see and arrange the previews in HUD/HUD_UI, then return to the same section to disable movement. Edit state is never persisted; each consumer addon continues to own its position, scale and standalone movement control.
 
 The Diagnostics section provides a one-way action to disable all registered EZO debug and diagnostic modes. It affects only loaded addons that expose the optional controller contract. Each addon keeps its individual control, SavedVariables and responsibility for releasing debug-only events, updates or simulations.
@@ -52,7 +54,7 @@ The built-in global-only catalog currently keeps EZOCore's own language, prefere
 - `EZOCore:RegisterSettingsPanel(addonId, panelId, panelData, options)`
 - `EZOCore:GetSettingsPanels()`
 - `EZOCore:OpenSettingsPanel(addonId)`
-- `EZOCore:RefreshSettingsPanel()`
+- `EZOCore:RefreshSettingsPanel(forceRebuild)`
 - `EZOCore:OpenSettings()`
 - `EZOCore:GetConfiguredLanguage()`
 - `EZOCore:GetLanguage()`
