@@ -13,7 +13,6 @@ local SAVED_VARIABLES_VERSION = 1
 
 local DEFAULT_SCOPE = "character"
 local ACCOUNT_WIDE_ADDONS = {
-    ezoraidplanner = true,
     ezotest = true,
     ezotools = true,
 }
@@ -23,8 +22,6 @@ local ACCOUNT_WIDE_PREFERENCE_KEYS = {
     ["ezocore.preferences.defaultScope"] = true,
     ["ezocore.settings.addonLifecycleDefaults"] = true,
     ["ezochat.history.messages"] = true,
-    ["ezoraidplanner.events"] = true,
-    ["ezoraidplanner.nextEventId"] = true,
     ["ezotools.friends"] = true,
     ["ezotools.raidLeaderActivitySession.lastActivity"] = true,
 }
