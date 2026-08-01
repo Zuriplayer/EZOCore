@@ -1291,7 +1291,7 @@ local function BuildLayoutOptions()
             name = T("moveAll"),
             tooltip = T("moveAllTooltip"),
             getFunc = function()
-                return service and service:AreAllSurfacesEditing() or false
+                return service and service:IsAnySurfaceEditing() or false
             end,
             setFunc = function(value)
                 if service then
