@@ -33,3 +33,7 @@ tmp/
 temp/
 build/
 dist/
+
+# Keep shared AI project instructions versioned.
+!AGENTS.md
+!CLAUDE.md
