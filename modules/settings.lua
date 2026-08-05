@@ -60,6 +60,7 @@ local ADDON_LIFECYCLE_CATALOG = {
     ["ezokeybinds"] = "stable",
     ["ezometter"] = "beta",
     ["ezopvp"] = "development",
+    ["ezoraidplanner"] = "archived",
     ["ezotakingaim"] = "archived",
     ["ezotest"] = "development",
     ["ezotools"] = "beta",
